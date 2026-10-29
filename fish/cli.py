@@ -192,7 +192,7 @@ def main(argv: list[str] | None = None) -> int:
     play.add_argument("--home", help="where this player's keys and state live (default ~/.fish/<name>)")
     play.add_argument("--fresh", action="store_true", help="start with a new identity and no saved game")
     play.add_argument("--no-browser", action="store_true", help="do not open the page")
-    play.add_argument("--bot-delay", type=float, default=1.2, help="seconds a computer player thinks")
+    play.add_argument("--bot-delay", type=float, default=2.0, help="seconds a computer player thinks")
     play.set_defaults(fn=cmd_play)
 
     rehearse = sub.add_parser("rehearse", help="several linked players on this machine")
@@ -205,7 +205,7 @@ def main(argv: list[str] | None = None) -> int:
     rehearse.add_argument("--lan-ip", help="the address phones use to reach this machine")
     rehearse.add_argument("--fresh", action="store_true", help="new identities and no saved games")
     rehearse.add_argument("--open", action="store_true", help="open every player's page")
-    rehearse.add_argument("--bot-delay", type=float, default=1.2, help="seconds a computer player thinks")
+    rehearse.add_argument("--bot-delay", type=float, default=2.0, help="seconds a computer player thinks")
     rehearse.set_defaults(fn=cmd_rehearse)
 
     args = parser.parse_args(argv)

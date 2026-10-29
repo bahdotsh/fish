@@ -81,6 +81,12 @@ the page shows a QR code. Each player scans it with their phone's camera,
 types a name, and picks a seat; the seat colour is the team. Empty seats
 can take computer players. When every seat is filled, start the game.
 
+The laptop runs the game from its top bar. **New game** deals fresh cards
+to the same seats. **End game** stops the game with no winner and takes
+everyone back to the room in their seats, so players can swap seats or
+bots before the next deal. Both ask once more before they throw a game
+away. When a game finishes, **Play again** deals another.
+
 - **The laptop is the table.** It shows the seats, the sets won and the last
   few moves, but nobody's cards. Put it where everyone can see it, or on a TV.
   It can also take a seat itself, if someone wants to play on it.
