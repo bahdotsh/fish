@@ -41,6 +41,9 @@ def wipe_home(home: Path) -> None:
 
 def port_free(port: int) -> bool:
     with socket.socket() as s:
+        # As uvicorn binds: connections from a page that was just closed
+        # linger in TIME_WAIT and must not count as the port being taken.
+        s.setsockopt(socket.SOL_SOCKET, socket.SO_REUSEADDR, 1)
         try:
             s.bind(("127.0.0.1", port))
         except OSError:
