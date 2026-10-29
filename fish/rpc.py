@@ -1,0 +1,146 @@
+"""A client of the SDK's local API: JSON-RPC 2.0 over a WebSocket on the
+service's Unix socket.
+
+Responses resolve the matching call. Events (notifications with
+``method == "event"``) go to ``on_event`` in the order the service sent
+them, from a separate task, so a handler may itself call the API.
+"""
+
+from __future__ import annotations
+
+import asyncio
+import itertools
+import json
+import logging
+from typing import Any, Awaitable, Callable
+
+from websockets.asyncio.client import unix_connect
+
+logger = logging.getLogger(__name__)
+
+EventHandler = Callable[[dict[str, Any]], Awaitable[None] | None]
+
+# Fish sends no files, so a few MiB is far more than any frame we expect.
+MAX_FRAME = 8 * 1024 * 1024
+# The reader must never block on handlers; past this, the oldest event goes.
+QUEUE_LIMIT = 5000
+
+
+class RpcError(Exception):
+    """A JSON-RPC error. ``variant`` is the engine's ProtocolError name."""
+
+    def __init__(self, error: dict[str, Any]) -> None:
+        super().__init__(error.get("message", "local API error"))
+        self.code: int = error.get("code", 0)
+        self.variant: str | None = (error.get("data") or {}).get("variant")
+
+
+class LocalApi:
+    def __init__(self, socket_path: str, app_id: str, client_name: str = "fish") -> None:
+        self.socket_path = socket_path
+        self.app_id = app_id
+        self.client_name = client_name
+        self.local_address: str | None = None
+        self.on_event: EventHandler | None = None
+        self._ws: Any = None
+        self._ids = itertools.count(1)
+        self._pending: dict[int, asyncio.Future[dict[str, Any]]] = {}
+        self._tasks: list[asyncio.Task[None]] = []
+        self.closed = asyncio.Event()
+
+    async def connect(self, timeout: float = 60.0) -> dict[str, Any]:
+        """Connects, retrying while the service is still starting, and says hello."""
+        loop = asyncio.get_running_loop()
+        deadline = loop.time() + timeout
+        while True:
+            try:
+                self._ws = await unix_connect(self.socket_path, uri="ws://localhost/", max_size=MAX_FRAME)
+                break
+            except OSError:
+                if loop.time() >= deadline:
+                    raise
+                await asyncio.sleep(0.5)
+        self.closed.clear()
+        events: asyncio.Queue[dict[str, Any] | None] = asyncio.Queue(maxsize=QUEUE_LIMIT)
+        self._tasks = [asyncio.create_task(self._dispatch(events)), asyncio.create_task(self._read(events))]
+        hello = await self.call("hello", {"app_id": self.app_id, "client": self.client_name})
+        self.local_address = hello.get("local_address")
+        return hello
+
+    async def _read(self, events: asyncio.Queue[dict[str, Any] | None]) -> None:
+        reason = "connection closed"
+        try:
+            async for raw in self._ws:
+                try:
+                    message = json.loads(raw)
+                except (ValueError, RecursionError):
+                    logger.warning("dropped a frame that is not JSON")
+                    continue
+                if not isinstance(message, dict):
+                    continue
+                if "id" in message:
+                    waiter = self._pending.pop(message["id"], None)
+                    if waiter is not None and not waiter.done():
+                        waiter.set_result(message)
+                elif message.get("method") == "event" and isinstance(message.get("params"), dict):
+                    self._enqueue(events, message["params"])
+        except Exception as exc:
+            reason = f"connection closed: {exc}"
+        finally:
+            for waiter in self._pending.values():
+                if not waiter.done():
+                    waiter.set_exception(ConnectionError(reason))
+            self._pending.clear()
+            self._enqueue(events, None)
+            self.closed.set()
+
+    @staticmethod
+    def _enqueue(events: asyncio.Queue[dict[str, Any] | None], event: dict[str, Any] | None) -> None:
+        while True:
+            try:
+                events.put_nowait(event)
+                return
+            except asyncio.QueueFull:
+                try:
+                    events.get_nowait()
+                except asyncio.QueueEmpty:
+                    pass
+
+    async def _dispatch(self, events: asyncio.Queue[dict[str, Any] | None]) -> None:
+        while True:
+            event = await events.get()
+            if event is None:
+                return
+            if self.on_event is None:
+                continue
+            try:
+                result = self.on_event(event)
+                if asyncio.iscoroutine(result):
+                    await result
+            except Exception:  # one bad handler must not stop the stream
+                logger.exception("event handler failed for %s", event.get("type"))
+
+    async def call(self, method: str, params: dict[str, Any] | None = None, timeout: float = 60.0) -> Any:
+        if self._ws is None or self.closed.is_set():
+            raise ConnectionError("not connected")
+        request_id = next(self._ids)
+        future: asyncio.Future[dict[str, Any]] = asyncio.get_running_loop().create_future()
+        self._pending[request_id] = future
+        payload = {"jsonrpc": "2.0", "id": request_id, "method": method, "params": params or {}}
+        try:
+            await self._ws.send(json.dumps(payload))
+            response = await asyncio.wait_for(future, timeout)
+        finally:
+            self._pending.pop(request_id, None)
+        if "error" in response:
+            error = response["error"]
+            raise RpcError(error if isinstance(error, dict) else {"message": str(error)})
+        if "result" not in response:
+            raise RpcError({"message": f"the service answered {method} without a result"})
+        return response["result"]
+
+    async def close(self) -> None:
+        if self._ws is not None:
+            await self._ws.close()
+        if self._tasks:
+            await asyncio.gather(*self._tasks, return_exceptions=True)
