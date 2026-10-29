@@ -397,7 +397,7 @@ class Table:
             raise TableError("Pick an empty seat for the computer player")
         address = f"{BOT_PREFIX}{seat}"
         taken = {room.names.get(a) for a in room.seats if a}
-        room.names[address] = next(n for n in BOT_NAMES if n not in taken) + " (bot)"
+        room.names[address] = next(n for n in BOT_NAMES if f"{n} (bot)" not in taken) + " (bot)"
         room.seats[seat] = address
         await self._host_broadcast()
 

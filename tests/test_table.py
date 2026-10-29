@@ -219,3 +219,13 @@ async def test_closing_the_room_tells_the_players():
     await host.command({"cmd": "close"})
     await bus.settle()
     assert tables[1].joined is None and host.address not in tables[1].rooms
+
+
+async def test_computer_players_get_different_names():
+    bus = Bus()
+    host = bus.add("off1ana", "Ana")
+    await host.command({"cmd": "host", "size": 8})
+    for seat in range(8):
+        await host.command({"cmd": "add_bot", "seat": seat})
+    names = [s["name"] for s in host.lobby["seats"]]
+    assert len(set(names)) == 8
