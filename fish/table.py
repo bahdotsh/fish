@@ -18,6 +18,9 @@ Messages (``t``):
   lobby   host -> members           the room in full
   state   host -> seated players    {seq, view}: that player's own view
   act     player -> host            {action: ask | declare | pass, ...}
+
+Only the host's own screen can start, restart or cancel a game: those are
+commands, never messages from another player.
   error   host -> player            {message}: a refused request
 """
 
@@ -236,6 +239,10 @@ class Table:
             await self._host_remove_bot(cmd.get("seat"))
         elif what == "start":
             await self._host_start()
+        elif what == "restart":
+            await self._host_start(restart=True)
+        elif what == "cancel":
+            await self._host_cancel()
         elif what in ("sit", "act"):
             if not self.joined:
                 raise TableError("Join a room first")
@@ -266,6 +273,7 @@ class Table:
             raise TableError("You are not hosting a room")
         self.room = None
         self._advert = None
+        self._stop_bots()
         self.bots.clear()
         self.joined, self.lobby, self.view, self.seq = None, None, None, -1
         self._save()
@@ -421,15 +429,34 @@ class Table:
         room.seats[seat] = None
         await self._host_broadcast()
 
-    async def _host_start(self) -> None:
+    async def _host_start(self, restart: bool = False) -> None:
+        """Deals a new game. `restart` throws away one still being played."""
         room = self._own_room()
-        if room.started and not room.game.over:
+        if room.started and not room.game.over and not restart:
             raise TableError("The game has already started")
         if None in room.seats:
             raise TableError(f"All {room.size} seats must be filled to start")
+        self._stop_bots()
         room.game = Game(room.size, self.rng)
         self.bots = {i: Bot(i, self.rng) for i, a in enumerate(room.seats) if is_bot(a)}
         await self._host_broadcast()
+
+    async def _host_cancel(self) -> None:
+        """Ends the game and takes everyone back to the room, in their seats,
+        so the host can change seats or players before dealing again."""
+        room = self._own_room()
+        if not room.started:
+            raise TableError("No game to end")
+        self._stop_bots()
+        room.game = None
+        self.bots.clear()
+        await self._host_broadcast()
+
+    def _stop_bots(self) -> None:
+        """Drops a bot move still waiting, so it cannot land in the next game."""
+        if self._bot_task and not self._bot_task.done() and self._bot_task is not asyncio.current_task():
+            self._bot_task.cancel()
+        self._bot_task = None
 
     def _own_room(self) -> Room:
         if not self.room:

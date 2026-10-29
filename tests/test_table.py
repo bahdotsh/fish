@@ -266,3 +266,60 @@ async def test_a_host_without_a_seat_runs_the_table():
             break
         await asyncio.sleep(0)
     assert host.view["over"] and sum(host.view["score"]) == 9
+
+
+async def test_the_host_can_end_a_game_and_keep_the_seats():
+    bus, host, tables = await seated_room()
+    await host.command({"cmd": "start"})
+    await bus.settle()
+    ben = tables[1]
+    await host.command({"cmd": "cancel"})
+    await bus.settle()
+    assert host.room.game is None and host.error is None
+    assert ben.view is None and ben.lobby["started"] is False
+    assert [s["name"] for s in ben.lobby["seats"]] == ["Ana", "Ben", "Cy", "Di", "Ed", "Flo"]
+    # Back in the room, seats can change and a new game can be dealt.
+    await ben.command({"cmd": "leave"})
+    await bus.settle()
+    assert ben.joined is None and host.room.seats[1] is None
+    await host.command({"cmd": "cancel"})
+    assert host.error == "No game to end"
+
+
+async def test_the_host_can_deal_a_new_game_mid_game():
+    bus, host, tables = await seated_room()
+    await host.command({"cmd": "start"})
+    await bus.settle()
+    first = host.room.game
+    await host.command({"cmd": "restart"})
+    await bus.settle()
+    assert host.error is None and host.room.game is not first
+    assert host.room.game.moves == 0
+    ben = tables[1]
+    assert set(ben.view["hand"]) == host.room.game.hands[1]
+
+
+async def test_only_the_host_ends_or_redeals_a_game():
+    bus, host, tables = await seated_room()
+    await host.command({"cmd": "start"})
+    await bus.settle()
+    ben = tables[1]
+    for cmd in ("cancel", "restart"):
+        await ben.command({"cmd": cmd})
+        assert ben.error == "Only the host can do that"
+    assert host.room.started
+
+
+async def test_a_bot_waiting_to_move_does_not_play_into_the_next_game():
+    bus = Bus()
+    host = bus.add("off1tv", "Table")
+    host.bot_delay = 0.05
+    await host.command({"cmd": "host", "size": 6})
+    for seat in range(6):
+        await host.command({"cmd": "add_bot", "seat": seat})
+    await host.command({"cmd": "start"})
+    waiting = host._bot_task
+    assert waiting is not None
+    await host.command({"cmd": "cancel"})
+    await asyncio.sleep(0)
+    assert waiting.cancelled() and host.room.game is None and host._bot_task is None
