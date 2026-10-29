@@ -1,10 +1,12 @@
 # Fish
 
-A team card game for 6 or 8 people, played on laptops sitting round the
-same table. There's no server and no internet: the laptops find each other
-over the local network or Bluetooth through the
+A team card game for 6 or 8 people sitting round the same table. One
+laptop runs the game, and players join from their phones by scanning a QR
+code, or from their own laptops. There's no server and no internet:
+laptops find each other over the local network or Bluetooth through the
 [Offline Protocol SDK](https://github.com/Offline-Protocol/offline-protocol-sdk),
-and every message between them is end-to-end encrypted.
+with every message between them end-to-end encrypted, and phones join the
+laptop over the Wi-Fi.
 
 ## The rules
 
@@ -66,18 +68,45 @@ python3 -m venv .venv
 This pulls `offline-protocol-sdk` from PyPI, which ships the
 `offline-protocol-service` that Fish runs underneath.
 
-## Play
+## Play from phones
 
-Every player runs Fish on their own laptop, with their own name:
+One laptop runs the game:
+
+```bash
+.venv/bin/fish play --name "Living room"
+```
+
+Its page opens at <http://127.0.0.1:7700/>. Host a 6- or 8-seat room and
+the page shows a QR code. Each player scans it with their phone's camera,
+types a name, and picks a seat; the seat colour is the team. Empty seats
+can take computer players. When every seat is filled, start the game.
+
+- **The laptop is the table.** It shows the seats, the sets won and the last
+  few moves, but nobody's cards. Put it where everyone can see it, or on a TV.
+  It can also take a seat itself, if someone wants to play on it.
+- **Phones need the same Wi-Fi as the laptop.** No internet is needed, so a
+  phone hotspot works. The laptop's address on the network is picked
+  automatically; if phones can't reach it, pass the right one with
+  `--lan-ip`.
+- **A phone that locks or loses Wi-Fi** shows as *Away*, and the game waits
+  on its turn. Opening the page again puts it back in its seat with its
+  cards. The phone remembers its seat, so it doesn't need to scan again.
+- **The first time**, macOS may ask whether Python may accept incoming
+  network connections. Allow it, or phones can't connect.
+- The phone page runs on port 7710 (`--phone-port`). `--no-phones` turns it
+  off.
+
+## Play from laptops
+
+Players with their own laptop can join without a phone. Each runs Fish with
+their own name:
 
 ```bash
 .venv/bin/fish play --name Ana
 ```
 
-Your page opens at <http://127.0.0.1:7700/>. One player hosts a 6- or
-8-seat room. Everyone else sees it under *Rooms nearby*, joins, and picks a
-seat; the seat colour is the team. Empty seats can take computer players.
-When every seat is filled, the host starts the game.
+One of them hosts a room, and the others see it under *Rooms nearby*, join
+and pick a seat. Laptops and phones can sit at the same table.
 
 **Finding each other.** By default Fish uses the local network and finds
 other players on the same Wi-Fi by itself. It doesn't need internet access,
@@ -112,9 +141,10 @@ This runs linked players in one process over loopback, with pages on ports
 browser page        draws the table, sends your moves
    |  WebSocket on 127.0.0.1
 fish app            the table: lobby, seats, and (on the host) the game
-   |  JSON-RPC on a Unix socket
-SDK service         identity, MLS sessions, Bluetooth / LAN transport
-   |
+   |                also: a guest table per phone, and the phone server
+   |  JSON-RPC on a Unix socket              |  HTTP + WebSocket on the Wi-Fi
+SDK service                                  phones' browsers
+   |  Bluetooth / LAN, MLS-encrypted
 the other laptops
 ```
 
@@ -124,6 +154,11 @@ the other laptops
   its own.
 - **Messages** are small JSON envelopes inside ordinary 1:1 SDK messages,
   over the MLS session the SDK sets up between each pair of laptops.
+- **Phones** can't run the SDK, so each one is a guest inside the host
+  laptop's app, with a table of its own wired straight to the host's. To the
+  game a phone is a player like any other. The QR code carries a join key,
+  so only people who can see the laptop's screen can join, and each phone
+  gets its own secret to reconnect with.
 - **The page** only listens on loopback. The WebSocket accepts nothing but
   Fish's own page, so another website can't drive your game.
 
@@ -134,6 +169,7 @@ the other laptops
 | `fish/table.py` | the lobby, seats and host-run game, as messages |
 | `fish/bot.py` | the computer player |
 | `fish/mesh.py` | players nearby, over the SDK |
+| `fish/phones.py` | phone guests, the QR code and the phone server |
 | `fish/rpc.py`, `fish/service.py` | the SDK's local API and service |
 | `fish/app.py`, `fish/cli.py` | the local web server and the `fish` command |
 | `fish/web/` | the page |
@@ -150,6 +186,10 @@ FISH_SLOW=1 .venv/bin/pytest     # adds a full 6-player game over real services,
 
 - **Players have to trust the host.** The host's laptop knows every hand.
   That's fine among friends, but it isn't cheat-proof.
+- **Phone traffic isn't encrypted.** Phones talk to the laptop over plain
+  HTTP on the local network, so someone else on the same Wi-Fi who sets out
+  to snoop could read a phone's hand. Laptop-to-laptop traffic goes through
+  the SDK and is encrypted.
 - **No new players mid-game.** Only people already seated can come back to
   a game in progress.
 - **Bluetooth hasn't been tried with a full table.** Six or eight laptops
