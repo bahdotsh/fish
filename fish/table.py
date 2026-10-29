@@ -448,6 +448,7 @@ class Table:
                 await self._post(address, {"t": "lobby", "lobby": lobby})
         for address in room.seats:
             await self._send_state(address)
+        self._watch()
         advert = room.advert()
         if advert != self._advert:
             self._advert = advert
@@ -469,6 +470,13 @@ class Table:
             self._on_state(self.address, {"seq": room.seq, "view": view})
         else:
             await self._post(address, {"t": "state", "seq": room.seq, "view": view})
+
+    def _watch(self) -> None:
+        """A host without a seat runs the table: it sees the game as anyone
+        watching would, with no hand."""
+        room = self.room
+        if room and room.game and room.seat_of(self.address) is None:
+            self._on_state(self.address, {"seq": room.seq, "view": room.game.view(None)})
 
     def _schedule_bots(self) -> None:
         room = self.room
@@ -542,6 +550,8 @@ class Table:
                 seat = room.seat_of(self.address)
                 if seat is not None:
                     self._on_state(self.address, {"seq": room.seq, "view": room.game.view(seat)})
+                else:
+                    self._watch()
 
     async def resume(self) -> None:
         """After a restart, picks a saved game back up (bots included)."""

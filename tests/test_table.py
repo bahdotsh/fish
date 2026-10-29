@@ -250,3 +250,19 @@ async def test_a_player_sees_when_the_host_is_out_of_range():
     assert not ben.snapshot()["host_away"]
     await ben.peer_lost(host.address)
     assert ben.snapshot()["host_away"]
+
+
+async def test_a_host_without_a_seat_runs_the_table():
+    bus = Bus()
+    host = bus.add("off1tv", "Table")
+    await host.command({"cmd": "host", "size": 6})
+    for seat in range(6):
+        await host.command({"cmd": "add_bot", "seat": seat})
+    await host.command({"cmd": "start"})
+    await bus.settle()
+    assert host.view["you"] is None and host.view["hand"] == []
+    for _ in range(2000):
+        if host.view["over"]:
+            break
+        await asyncio.sleep(0)
+    assert host.view["over"] and sum(host.view["score"]) == 9

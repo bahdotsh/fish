@@ -256,3 +256,10 @@ def test_a_saved_game_restores_exactly():
     copy = Game.from_dict(game.to_dict())
     assert copy.to_dict() == game.to_dict()
     assert all(copy.view(p) == game.view(p) for p in range(8))
+
+
+def test_the_public_view_shows_no_hand():
+    game = Game(6, random.Random(4))
+    view = game.view(None)
+    assert view["hand"] == [] and view["you"] is None and view["team"] is None
+    assert view["counts"] == [9] * 6

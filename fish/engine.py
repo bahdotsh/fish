@@ -215,15 +215,19 @@ class Game:
 
     # -- what each player may see -------------------------------------------
 
-    def view(self, player: int) -> dict:
-        """Everything `player` is allowed to know, as plain JSON-ready data."""
-        self._check_player(player)
+    def view(self, player: int | None) -> dict:
+        """Everything `player` is allowed to know, as plain JSON-ready data.
+
+        With None, the table as anyone watching sees it: no hand at all.
+        """
+        if player is not None:
+            self._check_player(player)
         last = self.last_declaration
         return {
             "you": player,
-            "team": team_of(player),
+            "team": team_of(player) if player is not None else None,
             "players": self.players,
-            "hand": sort_cards(self.hands[player]),
+            "hand": sort_cards(self.hands[player]) if player is not None else [],
             "counts": [len(h) for h in self.hands],
             "turn": self.turn,
             "must_pass": self.must_pass,
