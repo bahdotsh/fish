@@ -53,6 +53,30 @@ def port_free(port: int, host: str = "127.0.0.1") -> bool:
     return True
 
 
+async def start_watching(players: list[Player], entries: list[Entry], procs: list[subprocess.Popen[bytes]]) -> None:
+    """Starts the players, but stops at once if an SDK service dies, with
+    the end of its log, instead of waiting for a socket that never comes."""
+    starting = asyncio.ensure_future(asyncio.gather(*(p.start() for p in players)))
+    while not starting.done():
+        for entry, proc in zip(entries, procs):
+            if proc.poll() is not None:
+                starting.cancel()
+                await asyncio.gather(starting, return_exceptions=True)
+                raise SystemExit(service_died(entry))
+        await asyncio.wait([starting], timeout=0.3)
+    starting.result()
+
+
+def service_died(entry: Entry) -> str:
+    log_path = entry.spec.home / "service.log"
+    try:
+        tail = log_path.read_text(errors="replace").strip().splitlines()[-8:]
+    except OSError:
+        tail = []
+    lines = [f"{entry.name}: the SDK service stopped while starting. The end of {log_path}:", ""]
+    return "\n".join(lines + ["    " + line for line in tail])
+
+
 @dataclass
 class Entry:
     """One player to run: their name, SDK service, page port and phone port."""
@@ -78,7 +102,7 @@ async def run_players(entries: list[Entry], open_browser: bool, bot_delay: float
         for e in entries:
             mesh = Mesh(LocalApi(str(e.spec.socket_path), APP_ID), e.name)
             players.append(Player(mesh, e.spec.home, bot_delay=bot_delay, phone_port=e.phone_port, lan_ip=lan_ip))
-        await asyncio.gather(*(p.start() for p in players))
+        await start_watching(players, entries, procs)
         servers = [make_server(p, e.port) for p, e in zip(players, entries)]
         servers += [make_phone_server(p) for p in players if p.phones]
         serving = [asyncio.create_task(s.serve()) for s in servers]

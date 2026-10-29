@@ -8,7 +8,7 @@ version = "0.1.0"
 description = "Fish, a team card game played offline over the Offline Protocol SDK."
 requires-python = ">=3.10"
 dependencies = [
-    "offline-protocol-sdk>=0.31.0",
+    "offline-protocol-sdk[lan]>=0.31.0",
     "starlette>=0.40",
     "uvicorn>=0.30",
     "websockets>=13,<17",
