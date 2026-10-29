@@ -146,6 +146,8 @@ button.go { background: var(--gold); }
 .seat .count { font-size: var(--step--1); color: var(--mist); }
 .seat.turn .disc { background: var(--team); color: var(--deep); }
 .seat.turn .count { color: var(--deep); }
+.seat .away { font-size: var(--step--1); color: var(--alert); font-weight: 700; }
+.seat.turn .away { color: var(--deep); }
 .seat.empty .disc { border-style: dashed; color: var(--mist); }
 .seat button { padding: 7px 12px; font-size: var(--step--1); }
 .seat.target .disc { box-shadow: 0 0 0 4px var(--foam); }

@@ -83,7 +83,12 @@ function plural(n, word) {
 function render() {
   const app = document.getElementById("app");
   if (!snap) return;
-  const err = snap.error ? `<p class="error" role="alert">${esc(snap.error)}</p>` : "";
+  let err = snap.error ? `<p class="error" role="alert">${esc(snap.error)}</p>` : "";
+  if (snap.host_away && snap.lobby) {
+    const host = snap.lobby.members.find((m) => m.address === snap.lobby.host)?.name || "the host";
+    err += `<p class="error" role="status">Lost touch with ${esc(host)}, who runs this game.
+      Your seat and cards are kept; play picks up when they're back in range.</p>`;
+  }
   let body;
   if (!snap.joined) body = home();
   else if (!snap.lobby) body = joining();
@@ -148,7 +153,7 @@ function lobby() {
     if (s) {
       const bot = s.address.startsWith("bot:");
       inner = `<div class="disc"><span class="name">${esc(s.name)}${s.address === me ? " (you)" : ""}</span>
-        <span class="count">${TEAM[teamOf(i)]}</span></div>
+        <span class="count">${s.away ? "Away" : TEAM[teamOf(i)]}</span></div>
         ${isHost && bot ? `<button class="quiet" data-cmd="remove_bot" data-seat="${i}">Remove</button>` : ""}`;
     } else {
       inner = `<div class="disc"><span class="name">Empty seat</span>
@@ -182,6 +187,7 @@ function lobby() {
 function game() {
   const v = snap.game;
   const names = seatNames();
+  const away = (snap.lobby?.seats || []).map((s) => Boolean(s && s.away));
   const me = v.you;
   const myTeam = v.team;
   const myTurn = v.turn === me && !v.over;
@@ -204,7 +210,8 @@ function game() {
     const can = asking && teamOf(i) !== myTeam && v.counts[i] > 0;
     const cls = `seat t${teamOf(i)} ${v.turn === i && !v.over ? "turn" : ""} ${ui.target === i ? "target" : ""}`;
     const disc = `<div class="disc"><span class="name">${esc(name)}${i === me ? " (you)" : ""}</span>
-      <span class="count">${plural(v.counts[i], "card")}</span></div>`;
+      <span class="count">${plural(v.counts[i], "card")}</span>
+      ${away[i] ? '<span class="away">Away</span>' : ""}</div>`;
     const inner = can
       ? `<button class="pick" data-cmd="target" data-seat="${i}" aria-label="Ask ${esc(name)}">${disc}</button>`
       : disc;
@@ -228,7 +235,7 @@ function game() {
   return `${bar}<!--error-->
     <div class="table"><div class="felt"></div>${seats}${pond}</div>
     <section class="you t${myTeam}">
-      <header><p class="prompt ${myTurn ? "mine" : ""}">${prompt(v, names, myTurn, teamTurn)}</p></header>
+      <header><p class="prompt ${myTurn ? "mine" : ""}">${prompt(v, names, myTurn, teamTurn, away)}</p></header>
       ${v.over ? "" : hand(v)}
       ${v.over ? "" : actions(v, names, myTurn, teamTurn)}
     </section>`;
@@ -250,7 +257,7 @@ function news(v, names) {
   return lines.map((l) => `<p>${l}</p>`).join("");
 }
 
-function prompt(v, names, myTurn, teamTurn) {
+function prompt(v, names, myTurn, teamTurn, away) {
   if (v.over) {
     const [g, t] = v.score;
     const won = v.winner === v.team;
@@ -258,6 +265,7 @@ function prompt(v, names, myTurn, teamTurn) {
   }
   if (myTurn && v.must_pass) return "You're out of cards. Pick a teammate to take the turn.";
   if (myTurn) return "Your turn. Ask an opponent for a card, or declare a set.";
+  if (away[v.turn]) return `${esc(names[v.turn])}'s turn, but they're out of range. The game waits for them.`;
   if (teamTurn) return `${esc(names[v.turn])}'s turn. You can declare a set for your team.`;
   return `${esc(names[v.turn])}'s turn.`;
 }

@@ -52,7 +52,7 @@ class Mesh:
         self.address: str | None = None
         self.peers: dict[str, Peer] = {}
         self.on_hello: Callable[[str, str], Awaitable[None]] | None = None
-        self.on_lost: Callable[[str], None] | None = None
+        self.on_lost: Callable[[str], Awaitable[None]] | None = None
         self.on_message: Callable[[str, dict[str, Any]], Awaitable[None]] | None = None
         self._seen: set[str] = set()
         self._tasks: set[asyncio.Task[Any]] = set()
@@ -130,7 +130,7 @@ class Mesh:
                 peer.nearby = False
                 peer.hello_sent = False
                 if peer.name and self.on_lost:
-                    self.on_lost(peer.address)
+                    await self.on_lost(peer.address)
         elif kind == "message_received":
             await self._on_message(event)
 

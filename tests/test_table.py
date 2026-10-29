@@ -229,3 +229,24 @@ async def test_computer_players_get_different_names():
         await host.command({"cmd": "add_bot", "seat": seat})
     names = [s["name"] for s in host.lobby["seats"]]
     assert len(set(names)) == 8
+
+
+async def test_players_out_of_range_show_as_away_and_come_back():
+    bus, host, tables = await seated_room()
+    await host.command({"cmd": "start"})
+    await bus.settle()
+    cy, ben = tables[2], tables[1]
+    await host.peer_lost(cy.address)
+    await bus.settle()
+    assert ben.lobby["seats"][2]["away"] and not ben.lobby["seats"][1]["away"]
+    await host.peer_seen(cy.address, "Cy")
+    await bus.settle()
+    assert not ben.lobby["seats"][2]["away"]
+
+
+async def test_a_player_sees_when_the_host_is_out_of_range():
+    bus, host, tables = await seated_room()
+    ben = tables[1]
+    assert not ben.snapshot()["host_away"]
+    await ben.peer_lost(host.address)
+    assert ben.snapshot()["host_away"]

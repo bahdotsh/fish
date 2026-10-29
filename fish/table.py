@@ -70,13 +70,15 @@ class Room:
     def seat_of(self, address: str) -> int | None:
         return self.seats.index(address) if address in self.seats else None
 
-    def lobby(self) -> dict[str, Any]:
+    def lobby(self, away: set[str] = frozenset()) -> dict[str, Any]:
+        """The room in full. `away` holds members the host cannot reach now."""
         return {
             "id": self.id,
             "host": self.host,
             "size": self.size,
             "members": [{"address": a, "name": n} for a, n in self.names.items()],
-            "seats": [{"address": a, "name": self.names.get(a)} if a else None for a in self.seats],
+            "seats": [{"address": a, "name": self.names.get(a), "away": a in away} if a else None
+                      for a in self.seats],
             "started": self.started,
         }
 
@@ -140,6 +142,7 @@ class Table:
             "rooms": sorted(self.rooms.values(), key=lambda r: (r["started"], r["host_name"] or "")),
             "hosting": self.room is not None,
             "joined": self.joined,
+            "host_away": bool(self.joined and self.joined != self.address and self.joined not in self.peers),
             "lobby": self.lobby,
             "game": self.view,
             "error": self.error,
@@ -168,14 +171,21 @@ class Table:
             room = self.room
             await self._post(address, {"t": "room", "room": room.advert()})
             if address in room.names:
+                # Back in range: they get their seat and hand, and everyone
+                # sees they are here again.
                 room.names[address] = name
-                await self._post(address, {"t": "lobby", "lobby": room.lobby()})
-                await self._send_state(address)
+                await self._host_broadcast()
         self._changed()
 
-    def peer_lost(self, address: str) -> None:
+    async def peer_lost(self, address: str) -> None:
         self.peers.pop(address, None)
+        if self.room and address in self.room.names:
+            await self._host_broadcast()
         self._changed()
+
+    def _away(self) -> set[str]:
+        """Members of our room we cannot reach right now."""
+        return {a for a in self.room.names if a != self.address and not is_bot(a) and a not in self.peers}
 
     async def receive(self, sender: str, message: dict[str, Any]) -> None:
         kind = message.get("t")
@@ -431,7 +441,7 @@ class Table:
         room = self.room
         room.seq += 1
         self._save()
-        lobby = room.lobby()
+        lobby = room.lobby(self._away())
         self._on_lobby(self.address, lobby)
         for address in list(room.names) + list(also):
             if address != self.address:
@@ -526,7 +536,7 @@ class Table:
         if self.room:
             room = self.room
             self.joined = self.address
-            self._on_lobby(self.address, room.lobby())
+            self._on_lobby(self.address, room.lobby(self._away()))
             if room.game:
                 self.bots = {i: Bot(i, self.rng) for i, a in enumerate(room.seats) if is_bot(a)}
                 seat = room.seat_of(self.address)
