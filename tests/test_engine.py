@@ -246,3 +246,13 @@ def test_random_games_always_finish_with_cards_conserved():
                 game.ask(me, rng.choice(opponents), card)
         assert game.over, f"seed {seed} did not finish"
         assert sum(game.score()) == 9
+
+
+def test_a_saved_game_restores_exactly():
+    game = Game(8, random.Random(3))
+    me = game.turn
+    held = next(iter(game.hands[me]))
+    game.ask(me, (me + 1) % 8, held)
+    copy = Game.from_dict(game.to_dict())
+    assert copy.to_dict() == game.to_dict()
+    assert all(copy.view(p) == game.view(p) for p in range(8))

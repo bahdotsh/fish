@@ -186,6 +186,33 @@ class Game:
         if not isinstance(player, int) or not 0 <= player < self.players:
             raise IllegalMove(f"No such player: {player}")
 
+    # -- saving --------------------------------------------------------------
+
+    def to_dict(self) -> dict:
+        last = self.last_declaration
+        return {
+            "players": self.players,
+            "hands": [sort_cards(h) for h in self.hands],
+            "turn": self.turn,
+            "must_pass": self.must_pass,
+            "claimed": dict(self.claimed),
+            "history": [vars(a) for a in self.history],
+            "last_declaration": vars(last) if last else None,
+        }
+
+    @classmethod
+    def from_dict(cls, data: dict) -> Game:
+        game = cls.__new__(cls)
+        game.players = data["players"]
+        game.hands = [set(h) for h in data["hands"]]
+        game.turn = data["turn"]
+        game.must_pass = data["must_pass"]
+        game.claimed = dict(data["claimed"])
+        game.history = deque((Ask(**a) for a in data["history"]), maxlen=HISTORY_LENGTH)
+        last = data["last_declaration"]
+        game.last_declaration = Declaration(**last) if last else None
+        return game
+
     # -- what each player may see -------------------------------------------
 
     def view(self, player: int) -> dict:
