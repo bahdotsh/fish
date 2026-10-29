@@ -1,35 +1,53 @@
+/* Fish: a koi pond at night. The table is the water, ringed with stones;
+   the nine sets are koi that surface in the colours of the team that wins
+   them; the players sit on pebbles round the edge. */
+
+@font-face {
+  font-family: "Young Serif";
+  src: url("fonts/young-serif.woff2") format("woff2");
+  font-weight: 400;
+  font-style: normal;
+  font-display: swap;
+}
+
 :root {
-  --night: #0a1c26;       /* the room */
-  --panel: #10293a;       /* panels beside the table */
-  --panel-2: #173a50;     /* raised surfaces on panels */
-  --line: rgba(255, 255, 255, 0.1);
-  --felt: #1a6b56;        /* the table */
-  --felt-deep: #10483a;
-  --rim: #5a3920;         /* the table's wooden edge */
-  --rim-hi: #7a5030;
-  --foam: #f2f6f7;        /* text */
-  --mist: #bccdd6;        /* quiet text, still readable from across a room */
-  --faint: #86a2b1;
-  --gold: #f6b93b;        /* team 0 */
-  --tide: #5bbcf2;        /* team 1 */
-  --paper: #fdfaf3;       /* cards */
-  --ink: #1b222d;         /* black suits */
-  --red: #c62f3a;         /* red suits */
-  --alert: #ff8f8f;
-  --danger: #e5484d;
-  --yes: #63dc9e;         /* an ask that got the card, a right declaration */
-  --deep: #0a1c26;        /* dark text on bright fills */
+  --ground: #161d2b;      /* the garden at night */
+  --slab: #212a3b;        /* stone slabs beside the pond */
+  --slab-2: #2c3649;      /* raised stone */
+  --pebble: #3a4459;
+  --pebble-lo: #262e3e;
+  --seam: #0f141e;        /* the dark between stones */
+  --line: rgba(222, 232, 255, 0.09);
+  --water: #164873;
+  --water-mid: #10365a;
+  --water-deep: #0a2342;
+  --foam: #eef2f7;        /* text */
+  --mist: #b4c0d2;        /* quiet text, still readable from across a room */
+  --faint: #8794ab;
+  --gold: #ffb84d;        /* team 0: the gold koi */
+  --tide: #6fcdfa;        /* team 1: the blue koi */
+  --ghost: #cfe0ff;       /* koi still in play, deep under the water */
+  --paper: #f8f1e2;       /* cards */
+  --paper-lo: #ece1c8;
+  --ink: #1e2533;         /* black suits, dark text on bright fills */
+  --red: #c4343b;         /* red suits */
+  --yes: #82dea4;         /* an ask that got the card, a right declaration */
+  --no: #ff8e7c;
+  --danger: #e5554a;
 
   --ui: ui-rounded, "SF Pro Rounded", "Nunito", system-ui, sans-serif;
-  --face: "Iowan Old Style", "Palatino Linotype", Palatino, Georgia, serif;
+  --face: "Young Serif", "Iowan Old Style", Palatino, Georgia, serif;
 
   --step--1: 0.875rem;
   --step-0: 1.0625rem;
   --step-1: 1.3125rem;
   --step-2: 1.75rem;
   --step-3: 3rem;
+  --step-4: 4.75rem;
 
-  --radius: 18px;
+  /* Pebbles are never quite round. */
+  --pebble-shape: 26px 34px 28px 32px / 30px 26px 34px 28px;
+  --slab-radius: 20px;
   color-scheme: dark;
 }
 
@@ -40,8 +58,8 @@ html, body { margin: 0; }
 body {
   min-height: 100vh;
   background:
-    radial-gradient(1200px 600px at 50% -10%, #12384d 0%, transparent 70%),
-    var(--night);
+    radial-gradient(900px 480px at 50% -12%, rgba(255, 184, 77, 0.07), transparent 70%),
+    var(--ground);
   color: var(--foam);
   font: 400 var(--step-0)/1.5 var(--ui);
   -webkit-font-smoothing: antialiased;
@@ -53,9 +71,8 @@ body {
   padding: 20px 24px 48px;
 }
 
-h1, h2, h3 { margin: 0; font-weight: 800; line-height: 1.15; letter-spacing: -0.01em; }
-h1 { font-size: var(--step-3); letter-spacing: -0.03em; }
-h2 { font-size: var(--step-1); }
+h1, h2, h3 { margin: 0; font: 400 var(--step-1)/1.15 var(--face); letter-spacing: 0; }
+h1 { font-size: var(--step-3); letter-spacing: -0.01em; }
 h3 { font-size: var(--step-0); }
 p { margin: 0; }
 b { font-weight: 800; }
@@ -64,13 +81,13 @@ b { font-weight: 800; }
 
 button {
   font: 700 var(--step-0)/1 var(--ui);
-  color: var(--deep);
+  color: var(--ink);
   background: var(--foam);
   border: 0;
   border-radius: 999px;
   padding: 12px 20px;
   cursor: pointer;
-  transition: transform 120ms ease, filter 120ms ease, background 120ms ease;
+  transition: transform 120ms ease, filter 120ms ease, background 120ms ease, box-shadow 120ms ease;
 }
 button:hover { filter: brightness(1.08); }
 button:active { transform: translateY(1px); }
@@ -78,11 +95,15 @@ button:disabled { opacity: 0.38; cursor: default; filter: none; transform: none;
 button.quiet {
   background: transparent;
   color: var(--foam);
-  box-shadow: inset 0 0 0 1.5px rgba(255, 255, 255, 0.35);
+  box-shadow: inset 0 0 0 1.5px rgba(222, 232, 255, 0.3);
 }
-button.quiet:hover { background: rgba(255, 255, 255, 0.08); filter: none; }
-button.quiet.armed { box-shadow: inset 0 0 0 2px var(--danger); color: #ffb3b5; }
-button.go { background: var(--gold); box-shadow: 0 6px 18px -6px color-mix(in srgb, var(--gold) 70%, transparent); }
+button.quiet:hover { background: rgba(222, 232, 255, 0.07); filter: none; }
+button.quiet.armed { box-shadow: inset 0 0 0 2px var(--danger); color: #ffbcb3; }
+button.go {
+  background: var(--gold);
+  box-shadow: 0 0 0 0 transparent, 0 8px 24px -8px color-mix(in srgb, var(--gold) 80%, transparent);
+}
+button.go:not(:disabled):hover { box-shadow: 0 0 0 4px color-mix(in srgb, var(--gold) 25%, transparent), 0 8px 24px -8px var(--gold); }
 button.danger { background: var(--danger); color: #fff; }
 button.small { padding: 8px 14px; font-size: var(--step--1); }
 :focus-visible { outline: 3px solid var(--tide); outline-offset: 3px; }
@@ -95,62 +116,80 @@ button.small { padding: 8px 14px; font-size: var(--step--1); }
   border-radius: 12px;
   font-weight: 600;
 }
-.error { background: color-mix(in srgb, var(--alert) 16%, transparent); color: var(--alert); }
-.notice { background: color-mix(in srgb, var(--tide) 16%, transparent); color: #bfe6fb; }
+.error { background: color-mix(in srgb, var(--no) 15%, transparent); color: var(--no); }
+.notice { background: color-mix(in srgb, var(--tide) 15%, transparent); color: #c4e9fc; }
 
 .quiet-text { color: var(--mist); }
 .hint { font-size: var(--step--1); color: var(--mist); }
-.label {
-  display: block;
-  font-size: 0.75rem; font-weight: 800; letter-spacing: 0.09em; text-transform: uppercase;
-  color: var(--faint);
-}
+.label { display: block; font-size: var(--step--1); font-weight: 700; color: var(--faint); }
 
 /* Names in team colour, in sentences. */
 b.n.t0 { color: var(--gold); }
 b.n.t1 { color: var(--tide); }
 
-.logo { width: 40px; height: auto; flex: none; }
-.logo path { fill: var(--gold); }
+/* ---------------------------------------------------------------- koi */
+
+.koi { display: block; overflow: visible; }
+.koi .body { fill: var(--koi, var(--ghost)); }
+.koi .fin { fill: var(--koi, var(--ghost)); opacity: 0.6; }
+.koi .spot { fill: var(--spot, transparent); }
+.koi .eye { fill: var(--ink); opacity: 0.8; }
+
+.logo { width: 44px; height: 44px; flex: none; overflow: visible; }
+.logo .t0 { --koi: var(--gold); --spot: #e0662f; }
+.logo .t1 { --koi: var(--tide); --spot: #f4f9ff; }
 
 /* ---------------------------------------------------------------- home */
 
-.home { display: grid; gap: 32px; max-width: 680px; margin: 24px auto 0; }
-.hero { display: grid; gap: 10px; }
-.hero .logo { width: 64px; }
-.lede { font-size: var(--step-1); color: var(--mist); line-height: 1.45; }
+.home { display: grid; gap: 36px; max-width: 680px; margin: 32px auto 0; }
+.hero { display: grid; grid-template-columns: auto 1fr; align-items: center; gap: 8px 24px; }
+/* The mark on the home screen: the two koi in a small pond of their own. */
+.hero .logo {
+  width: 132px; height: 132px; padding: 18px;
+  grid-row: span 2;
+  border-radius: 50%;
+  background:
+    repeating-radial-gradient(circle, transparent 0 13px, rgba(222, 236, 255, 0.05) 14px 15px),
+    radial-gradient(circle at 50% 40%, var(--water), var(--water-deep));
+  box-shadow: 0 0 0 3px var(--seam), 0 0 0 9px var(--pebble), 0 0 0 11px var(--seam), 0 24px 40px -16px rgba(0, 0, 0, 0.8);
+  animation: circle 60s linear infinite;
+}
+.hero h1 { font-size: var(--step-4); line-height: 0.95; letter-spacing: -0.02em; }
+@keyframes circle { to { transform: rotate(-360deg); } }
+.lede { font-size: var(--step-1); color: var(--mist); line-height: 1.45; max-width: 46ch; }
 .lede b { color: var(--foam); }
+.hero .lede { grid-column: 1 / -1; margin-top: 8px; }
 .home section { display: grid; gap: 12px; }
 
 .list { list-style: none; margin: 0; padding: 0; display: grid; gap: 10px; }
 .list li {
   display: flex; align-items: center; justify-content: space-between; gap: 12px;
   padding: 16px 18px;
-  background: var(--panel);
+  background: var(--slab);
   border: 1px solid var(--line);
-  border-radius: var(--radius);
+  border-radius: var(--slab-radius);
 }
-.list li strong { font-size: var(--step-1); }
+.list li strong { font: 400 var(--step-1)/1.2 var(--face); }
 
 .host-choice { display: grid; grid-template-columns: repeat(auto-fit, minmax(220px, 1fr)); gap: 12px; }
 button.size-pick {
-  display: grid; gap: 6px; text-align: left;
-  padding: 20px 22px;
-  border-radius: var(--radius);
-  background: var(--panel);
+  display: grid; gap: 8px; text-align: left;
+  padding: 22px 24px;
+  border-radius: var(--slab-radius);
+  background: var(--slab);
   color: var(--foam);
-  border: 1.5px solid var(--line);
+  box-shadow: inset 0 0 0 1.5px var(--line);
   line-height: 1.3;
 }
-button.size-pick strong { font-size: var(--step-2); }
+button.size-pick strong { font: 400 var(--step-2)/1.1 var(--face); }
 button.size-pick span { color: var(--mist); font-weight: 600; font-size: var(--step--1); }
-button.size-pick:hover { border-color: var(--gold); filter: none; background: var(--panel-2); }
+button.size-pick:hover { box-shadow: inset 0 0 0 2px var(--gold); filter: none; background: var(--slab-2); }
 
 .peers { display: flex; flex-wrap: wrap; gap: 8px; }
 .chip {
   padding: 6px 14px;
   border-radius: 999px;
-  background: var(--panel-2);
+  background: var(--slab-2);
   color: var(--foam);
   font-size: var(--step--1); font-weight: 600;
 }
@@ -173,11 +212,11 @@ button.size-pick:hover { border-color: var(--gold); filter: none; background: va
   display: flex; align-items: center; justify-content: space-between; flex-wrap: wrap; gap: 14px 24px;
   margin: 0 0 18px;
   padding: 16px 20px;
-  border-radius: var(--radius);
-  background: color-mix(in srgb, var(--danger) 14%, var(--panel));
+  border-radius: var(--slab-radius);
+  background: color-mix(in srgb, var(--danger) 14%, var(--slab));
   border: 1.5px solid color-mix(in srgb, var(--danger) 60%, transparent);
 }
-.confirm strong { font-size: var(--step-1); }
+.confirm strong { font: 400 var(--step-1)/1.2 var(--face); }
 .confirm p { color: var(--mist); max-width: 60ch; }
 .confirm .row { display: flex; gap: 10px; flex-wrap: wrap; }
 
@@ -192,12 +231,13 @@ button.size-pick:hover { border-color: var(--gold); filter: none; background: va
 .side { display: grid; gap: 14px; }
 .side > section, .qr {
   padding: 18px 20px;
-  border-radius: var(--radius);
-  background: var(--panel);
+  border-radius: var(--slab-radius);
+  background: var(--slab);
   border: 1px solid var(--line);
 }
 
 .table {
+  --pond: 10% 12%;
   position: relative;
   width: 100%;
   aspect-ratio: 16 / 11;
@@ -207,17 +247,30 @@ button.size-pick:hover { border-color: var(--gold); filter: none; background: va
 }
 /* A player's own hand matters most, so their table leaves room for it. */
 .play:not(.watching) .table { max-height: max(380px, calc(100vh - 380px)); }
-.felt {
+
+/* The water: lit from above, darker at the edges, with rings on the surface. */
+.water {
   position: absolute;
-  inset: 10% 12%;
+  inset: var(--pond);
   border-radius: 50%;
   background:
-    radial-gradient(ellipse at 50% 35%, color-mix(in srgb, var(--felt) 80%, #fff 8%), var(--felt) 45%, var(--felt-deep) 100%);
-  box-shadow:
-    0 0 0 12px var(--rim),
-    0 0 0 14px var(--rim-hi),
-    inset 0 0 60px rgba(0, 0, 0, 0.35),
-    0 30px 60px -20px rgba(0, 0, 0, 0.6);
+    repeating-radial-gradient(ellipse at 50% 50%, transparent 0 34px, rgba(222, 236, 255, 0.035) 35px 36px),
+    radial-gradient(ellipse at 46% 36%, var(--water) 0%, var(--water-mid) 50%, var(--water-deep) 100%);
+  box-shadow: inset 0 0 0 3px var(--seam), inset 0 18px 50px rgba(4, 12, 28, 0.65);
+}
+/* The ring of stones round the water. */
+.water::before {
+  content: "";
+  position: absolute;
+  inset: -16px;
+  z-index: -1;
+  border-radius: 50%;
+  background: repeating-conic-gradient(from 4deg,
+    #414b61 0deg 8deg, var(--seam) 8deg 8.8deg,
+    #353e52 8.8deg 15deg, var(--seam) 15deg 15.8deg,
+    #4a5469 15.8deg 21deg, var(--seam) 21deg 21.8deg,
+    #3a4357 21.8deg 29deg, var(--seam) 29deg 29.8deg);
+  box-shadow: 0 0 0 2px var(--seam), 0 30px 60px -20px rgba(0, 0, 0, 0.7);
 }
 
 /* ---------------------------------------------------------------- seats */
@@ -235,13 +288,16 @@ button.size-pick:hover { border-color: var(--gold); filter: none; background: va
   position: relative;
   width: 100%;
   display: flex; align-items: center; gap: 10px;
-  padding: 10px 12px;
-  border-radius: 16px;
-  background: var(--panel);
-  border: 2px solid var(--team);
-  box-shadow: 0 8px 20px -8px rgba(0, 0, 0, 0.6);
+  padding: 10px 14px 10px 10px;
+  border-radius: var(--pebble-shape);
+  background: linear-gradient(165deg, var(--pebble), var(--pebble-lo));
+  box-shadow:
+    inset 0 0 0 2px var(--team),
+    inset 0 3px 0 rgba(255, 255, 255, 0.07),
+    0 5px 0 var(--seam),
+    0 14px 22px -10px rgba(0, 0, 0, 0.7);
   text-align: left;
-  transition: transform 160ms ease;
+  transition: transform 160ms ease, box-shadow 160ms ease;
 }
 .seat .avatar {
   flex: none;
@@ -249,89 +305,108 @@ button.size-pick:hover { border-color: var(--gold); filter: none; background: va
   border-radius: 50%;
   display: grid; place-items: center;
   background: var(--team);
-  color: var(--deep);
-  font-weight: 900; font-size: 1.125rem;
+  color: var(--ink);
+  font: 400 1.25rem/1 var(--face);
 }
 .seat .who { display: grid; min-width: 0; gap: 1px; }
 .seat .name { font-weight: 800; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
 .seat .count { font-size: var(--step--1); color: var(--mist); white-space: nowrap; display: flex; align-items: center; gap: 6px; }
 .seat .me, .seat .bot-tag {
   display: inline-block; vertical-align: 2px;
-  padding: 1px 6px; border-radius: 6px;
-  font-size: 0.6875rem; font-weight: 800; text-transform: uppercase; letter-spacing: 0.05em;
+  padding: 1px 7px; border-radius: 999px;
+  font-size: 0.75rem; font-weight: 800;
 }
-.seat .me { background: var(--foam); color: var(--deep); }
-.seat .bot-tag { background: rgba(255, 255, 255, 0.14); color: var(--mist); }
-.seat .away { font-size: var(--step--1); color: var(--alert); font-weight: 800; }
+.seat .me { background: var(--foam); color: var(--ink); }
+.seat .bot-tag { background: rgba(222, 232, 255, 0.12); color: var(--mist); }
+.seat .away { font-size: var(--step--1); color: var(--no); font-weight: 800; }
 
 /* A small stack of card backs before the count. */
 .backs {
   width: 12px; height: 16px; border-radius: 3px; flex: none;
-  background: repeating-linear-gradient(45deg, var(--team) 0 2px, transparent 2px 4px), var(--panel-2);
-  box-shadow: 3px -2px 0 -1px var(--panel), 3px -2px 0 0 var(--team);
+  background: repeating-linear-gradient(45deg, var(--team) 0 2px, transparent 2px 4px), var(--slab-2);
+  box-shadow: 3px -2px 0 -1px var(--pebble-lo), 3px -2px 0 0 var(--team);
 }
 
-.seat.out .disc { opacity: 0.6; }
+.seat.out .disc { opacity: 0.55; }
 
+/* Whose turn it is: their pebble lights up like a lantern, and rings spread
+   across the water from it. */
 .seat.turn .disc {
   background: var(--team);
-  color: var(--deep);
-  animation: beacon 1.8s ease-out infinite;
+  color: var(--ink);
+  box-shadow:
+    inset 0 3px 0 rgba(255, 255, 255, 0.3),
+    0 5px 0 color-mix(in srgb, var(--team) 45%, var(--seam)),
+    0 0 44px -6px var(--team);
 }
-.seat.turn .avatar { background: var(--deep); color: var(--team); }
-.seat.turn .count, .seat.turn .away { color: var(--deep); }
-.seat.turn .backs { background: var(--deep); box-shadow: 3px -2px 0 -1px var(--team), 3px -2px 0 0 var(--deep); }
-.seat.turn .bot-tag { background: rgba(0, 0, 0, 0.15); color: var(--deep); }
-@keyframes beacon {
-  0% { box-shadow: 0 0 0 0 color-mix(in srgb, var(--team) 70%, transparent); }
-  100% { box-shadow: 0 0 0 16px color-mix(in srgb, var(--team) 0%, transparent); }
+.seat.turn .disc::after {
+  content: "";
+  position: absolute; inset: -2px;
+  border-radius: inherit;
+  box-shadow: 0 0 0 2px var(--team);
+  animation: ripple 2.2s ease-out infinite;
+  pointer-events: none;
 }
+@keyframes ripple {
+  from { opacity: 0.9; transform: scale(1); }
+  to { opacity: 0; transform: scale(1.25, 1.6); }
+}
+.seat.turn .avatar { background: var(--ink); color: var(--team); }
+.seat.turn .count, .seat.turn .away { color: var(--ink); }
+.seat.turn .backs { background: var(--ink); box-shadow: 3px -2px 0 -1px var(--team), 3px -2px 0 0 var(--ink); }
+.seat.turn .bot-tag { background: rgba(0, 0, 0, 0.14); color: var(--ink); }
 .seat .turn-tag {
-  position: absolute; left: 50%; top: -12px; transform: translateX(-50%);
-  padding: 3px 10px;
+  position: absolute; left: 50%; top: -13px; transform: translateX(-50%);
+  padding: 3px 11px;
   border-radius: 999px;
-  background: var(--foam);
-  color: var(--deep);
-  font-size: 0.6875rem; font-weight: 900; letter-spacing: 0.06em; text-transform: uppercase;
+  background: var(--ink);
+  color: var(--team);
+  box-shadow: 0 0 0 2px var(--team);
+  font-size: 0.75rem; font-weight: 800;
   white-space: nowrap;
+  z-index: 1;
 }
 
-.seat.empty .disc { border-style: dashed; background: rgba(10, 28, 38, 0.7); color: var(--mist); }
-.seat.empty .avatar { background: transparent; color: var(--team); box-shadow: inset 0 0 0 2px var(--team); }
+.seat.empty .disc {
+  background: rgba(22, 29, 43, 0.75);
+  box-shadow: inset 0 0 0 2px color-mix(in srgb, var(--team) 55%, transparent);
+  color: var(--mist);
+}
+.seat.empty .avatar { background: transparent; color: var(--team); box-shadow: inset 0 0 0 2px var(--team); font-family: var(--ui); font-weight: 800; }
 .seat-actions { display: flex; gap: 6px; flex-wrap: wrap; justify-content: center; }
 .seat > button.small { justify-self: center; }
 
 /* Opponents you can ask lift when you point at them. */
-.seat button.pick { width: 100%; border-radius: 16px; padding: 0; background: none; color: inherit; }
+.seat button.pick { width: 100%; border-radius: var(--pebble-shape); padding: 0; background: none; color: inherit; }
 .seat.can .disc { cursor: pointer; }
-.seat button.pick:hover .disc { transform: translateY(-3px); box-shadow: 0 0 0 3px var(--foam); }
-.seat.target .disc { box-shadow: 0 0 0 4px var(--foam); transform: translateY(-3px); }
+.seat button.pick:hover .disc,
+.seat.target .disc { transform: translateY(-4px); box-shadow: inset 0 0 0 3px var(--foam), 0 9px 0 var(--seam), 0 18px 26px -10px rgba(0, 0, 0, 0.7); }
 
-/* What each seat just said. Above the seat, or below it for seats at the top. */
+/* What each seat just said, on a slip of paper. Above the seat, or below it for seats at the top. */
 .bubble {
   position: absolute;
   bottom: calc(100% + 10px);
   left: 50%; transform: translateX(-50%);
-  max-width: 200px;
+  max-width: 210px;
   padding: 7px 12px;
-  border-radius: 12px;
-  background: var(--foam);
-  color: var(--deep);
+  border-radius: 10px;
+  background: var(--paper);
+  color: var(--ink);
   font-size: var(--step--1); font-weight: 800; line-height: 1.2;
   white-space: nowrap; overflow: hidden; text-overflow: ellipsis;
-  box-shadow: 0 6px 16px rgba(0, 0, 0, 0.35);
+  box-shadow: 0 6px 16px rgba(0, 0, 0, 0.4);
   z-index: 3;
 }
 .bubble::after {
   content: ""; position: absolute; left: 50%; top: 100%;
-  border: 6px solid transparent; border-top-color: var(--bubble, var(--foam));
+  border: 6px solid transparent; border-top-color: var(--bubble, var(--paper));
   transform: translateX(-50%);
 }
 .seat.turn .bubble { bottom: calc(100% + 22px); }
-.seat.top .bubble { bottom: auto; top: calc(100% + 10px); }
-.seat.top .bubble::after { top: auto; bottom: 100%; border-top-color: transparent; border-bottom-color: var(--bubble, var(--foam)); }
+.seat.top .bubble { bottom: auto; top: calc(100% + 12px); }
+.seat.top .bubble::after { top: auto; bottom: 100%; border-top-color: transparent; border-bottom-color: var(--bubble, var(--paper)); }
 .bubble.yes { --bubble: var(--yes); background: var(--yes); }
-.bubble.no { --bubble: var(--alert); background: var(--alert); }
+.bubble.no { --bubble: var(--no); background: var(--no); }
 .bubble.fresh { animation: pop 380ms cubic-bezier(.2, 1.4, .4, 1) both; }
 .bubble.fresh.yes, .bubble.fresh.no { animation-delay: 350ms; }
 @keyframes pop {
@@ -340,48 +415,78 @@ button.size-pick:hover { border-color: var(--gold); filter: none; background: va
 }
 
 /* A seat's card count going up or down with the latest move. */
-.delta { padding: 0 7px; border-radius: 999px; font-weight: 900; color: var(--deep); }
+.delta { padding: 0 7px; border-radius: 999px; font-weight: 900; color: var(--ink); }
 .delta.up { background: var(--yes); }
-.delta.down { background: var(--alert); }
+.delta.down { background: var(--no); }
 .delta.fresh { animation: pop-in 500ms 350ms both; }
 @keyframes pop-in { from { opacity: 0; transform: scale(0.4); } to { opacity: 1; transform: none; } }
 
-/* The latest ask, asker to target. */
-.ask-line { position: absolute; inset: 0; width: 100%; height: 100%; z-index: 0; pointer-events: none; }
+/* The latest ask, asker to target, across the water. */
+.ask-line { position: absolute; inset: 0; width: 100%; height: 100%; z-index: 1; pointer-events: none; }
 .ask-line line {
-  stroke: var(--foam); stroke-width: 3; stroke-linecap: round; stroke-dasharray: 2 9; opacity: 0.75;
+  stroke: var(--foam); stroke-width: 3; stroke-linecap: round; stroke-dasharray: 2 9; opacity: 0.8;
   animation: flow 900ms linear infinite;
 }
 .ask-line.yes line { stroke: var(--yes); }
-.ask-line.no line { stroke: var(--alert); }
+.ask-line.no line { stroke: var(--no); }
 @keyframes flow { to { stroke-dashoffset: -11; } }
 
 /* ---------------------------------------------------------------- pond */
 
-/* The nine sets on the felt, coloured by the team that won each. */
+/* The nine koi swim in a ring round the middle of the water. */
 .pond {
   position: absolute;
-  left: 50%; top: 50%;
-  transform: translate(-50%, -50%);
-  width: min(56%, 480px);
+  inset: var(--pond);
   z-index: 1;
-  display: grid; gap: 12px; justify-items: center; text-align: center;
 }
-.fishes { display: grid; grid-template-columns: repeat(9, 1fr); gap: 6px; width: 100%; }
-.fish { display: grid; justify-items: center; gap: 3px; font-size: 0.75rem; font-weight: 700; color: rgba(255, 255, 255, 0.7); }
-.fish svg { width: 100%; max-width: 44px; height: auto; filter: drop-shadow(0 2px 2px rgba(0, 0, 0, 0.25)); }
-.fish path { fill: rgba(255, 255, 255, 0.2); }
-.fish.won0 path { fill: var(--gold); }
-.fish.won1 path { fill: var(--tide); }
-.fish.won0, .fish.won1 { color: var(--foam); }
-.fish.fresh svg { animation: splash 900ms ease-out; }
-@keyframes splash {
-  0% { transform: translateY(8px) scale(0.6); }
-  60% { transform: translateY(-4px) scale(1.15); }
-  100% { transform: none; }
+.fish { position: absolute; inset: 0; pointer-events: none; }
+.fish .koi, .fish span { position: absolute; pointer-events: auto; }
+.fish .koi {
+  left: var(--x); top: var(--y);
+  width: clamp(22px, 3.4vw, 40px); height: auto;
+  transform: translate(-50%, -50%) rotate(var(--heading));
+  filter: blur(0.6px);
+  opacity: 0.22;
 }
-.pond-status { font-size: var(--step-0); font-weight: 700; color: rgba(255, 255, 255, 0.9); max-width: 32ch; text-shadow: 0 1px 3px rgba(0, 0, 0, 0.5); }
-.winner { font-size: var(--step-3); font-weight: 900; letter-spacing: -0.03em; line-height: 1; text-shadow: 0 4px 20px rgba(0, 0, 0, 0.4); }
+.fish span {
+  left: var(--lx); top: var(--ly);
+  transform: translate(-50%, -50%);
+  font-size: 0.8125rem; font-weight: 700; white-space: nowrap;
+  color: rgba(222, 236, 255, 0.55);
+}
+.fish.won .koi { opacity: 1; filter: drop-shadow(0 6px 4px rgba(2, 10, 26, 0.55)); }
+.fish.won span { color: var(--koi); }
+.fish.t0 { --koi: var(--gold); --spot: #e0662f; }
+.fish.t1 { --koi: var(--tide); --spot: #f4f9ff; }
+
+/* A set just won: its koi rises to the surface, and the water rings round it. */
+.fish.fresh .koi { animation: surface 1100ms cubic-bezier(.2, .9, .3, 1) both; }
+.fish.fresh::before {
+  content: "";
+  position: absolute; left: var(--x); top: var(--y);
+  width: 56px; height: 56px; margin: -28px 0 0 -28px;
+  border-radius: 50%;
+  box-shadow: 0 0 0 2px var(--koi);
+  animation: ring 1400ms 250ms ease-out both;
+}
+@keyframes surface {
+  0% { opacity: 0.22; filter: blur(2px); transform: translate(-50%, -50%) rotate(var(--heading)) scale(0.7); }
+  60% { opacity: 1; transform: translate(-50%, -50%) rotate(var(--heading)) scale(1.18); }
+  100% { opacity: 1; transform: translate(-50%, -50%) rotate(var(--heading)) scale(1); }
+}
+@keyframes ring {
+  from { opacity: 0.9; transform: scale(0.4); }
+  to { opacity: 0; transform: scale(2.4); }
+}
+
+.pond-mid {
+  position: absolute; left: 50%; top: 50%;
+  transform: translate(-50%, -50%);
+  width: 46%;
+  display: grid; gap: 6px; justify-items: center; text-align: center;
+}
+.pond-status { font: 400 var(--step-1)/1.3 var(--face); color: rgba(238, 242, 247, 0.92); text-shadow: 0 1px 3px rgba(0, 0, 0, 0.5); }
+.winner { font: 400 var(--step-3)/1 var(--face); letter-spacing: -0.01em; text-shadow: 0 4px 24px rgba(0, 0, 0, 0.5); }
 .winner.t0 { color: var(--gold); }
 .winner.t1 { color: var(--tide); }
 
@@ -394,25 +499,28 @@ button.size-pick:hover { border-color: var(--gold); filter: none; background: va
 
 .scoreboard { display: grid; gap: 10px; padding: 14px !important; }
 .team {
-  padding: 12px 14px;
+  padding: 14px 16px;
   border-radius: 14px;
-  background: var(--panel-2);
-  border-left: 5px solid var(--team);
+  background: var(--slab-2);
+  box-shadow: inset 4px 0 0 var(--team);
   display: grid; gap: 4px;
 }
-.team.t0 { --team: var(--gold); }
-.team.t1 { --team: var(--tide); }
-.team.winner { box-shadow: 0 0 0 2px var(--team), 0 0 24px -4px var(--team); }
+.team.t0 { --team: var(--gold); --koi: var(--gold); --spot: #e0662f; }
+.team.t1 { --team: var(--tide); --koi: var(--tide); --spot: #f4f9ff; }
+.team.winner { box-shadow: inset 4px 0 0 var(--team), 0 0 0 2px var(--team), 0 0 28px -4px var(--team); }
 .team-head { display: flex; align-items: baseline; justify-content: space-between; gap: 10px; }
-.team-name { font-weight: 900; font-size: var(--step-1); color: var(--team); }
-.team-score { font-weight: 900; font-size: 2.5rem; line-height: 1; color: var(--team); font-variant-numeric: tabular-nums; }
+.team-name { font: 400 var(--step-1)/1.1 var(--face); color: var(--team); }
+.team-score { font: 400 2.75rem/1 var(--face); color: var(--team); font-variant-numeric: tabular-nums; }
 .team-who { font-size: var(--step--1); color: var(--mist); }
-.won { display: flex; flex-wrap: wrap; gap: 5px; margin-top: 4px; }
+.won { display: flex; flex-wrap: wrap; gap: 6px; margin-top: 6px; }
 .won-set {
-  padding: 2px 8px; border-radius: 6px;
-  background: var(--team); color: var(--deep);
+  display: inline-flex; align-items: center; gap: 5px;
+  padding: 3px 9px 3px 5px; border-radius: 999px;
+  background: color-mix(in srgb, var(--team) 16%, transparent);
+  color: var(--team);
   font-size: 0.8125rem; font-weight: 800;
 }
+.won-set .koi { width: 10px; height: 16px; transform: rotate(90deg); }
 .won .none { font-size: var(--step--1); color: var(--faint); }
 
 .pbp { display: grid; gap: 14px; }
@@ -428,21 +536,19 @@ button.size-pick:hover { border-color: var(--gold); filter: none; background: va
 .verdict {
   display: inline-block; vertical-align: 2px; margin-left: 4px;
   padding: 3px 10px; border-radius: 999px;
-  font-size: var(--step--1); font-weight: 900; color: var(--deep);
+  font-size: var(--step--1); font-weight: 900; color: var(--ink);
 }
 .verdict.yes { background: var(--yes); }
-.verdict.no { background: var(--alert); }
+.verdict.no { background: var(--no); }
 .chip-card {
   display: inline-block; padding: 0 8px; border-radius: 6px;
   background: var(--paper); color: var(--ink);
-  font: 700 0.95em/1.45 var(--face);
+  font: 400 0.95em/1.45 var(--face);
 }
 .chip-card.red { color: var(--red); }
 
 .legend { display: grid; gap: 10px; }
-.legend > span {
-  display: inline-flex; align-items: center; gap: 8px; font-weight: 800;
-}
+.legend > span { display: inline-flex; align-items: center; gap: 8px; font: 400 var(--step-1)/1.2 var(--face); }
 .legend > span::before { content: ""; width: 14px; height: 14px; border-radius: 50%; background: currentColor; }
 .legend .t0 { color: var(--gold); }
 .legend .t1 { color: var(--tide); }
@@ -454,8 +560,8 @@ button.size-pick:hover { border-color: var(--gold); filter: none; background: va
 .you {
   margin-top: 20px;
   padding: 20px 22px;
-  border-radius: 22px;
-  background: var(--panel);
+  border-radius: 24px;
+  background: var(--slab);
   border: 1px solid var(--line);
   display: grid; gap: 18px;
 }
@@ -466,34 +572,41 @@ button.size-pick:hover { border-color: var(--gold); filter: none; background: va
 .you .prompt.mine { color: var(--team-me); }
 .you.my-turn {
   border-color: var(--team-me);
-  box-shadow: 0 0 0 2px var(--team-me), 0 0 40px -10px var(--team-me);
+  box-shadow: 0 0 0 2px var(--team-me), 0 0 48px -12px var(--team-me);
 }
 
-.hand { display: flex; flex-wrap: wrap; gap: 16px 28px; }
+.hand { display: flex; flex-wrap: wrap; gap: 16px 30px; }
 .group { display: grid; gap: 8px; align-content: start; }
-.group .label { color: var(--mist); letter-spacing: 0.06em; }
 .cards { display: flex; }
-.cards .card + .card { margin-left: -16px; }
+.cards .card + .card { margin-left: -20px; }
 
+/* A card: rank in the corner, suit large in the middle, a printed frame. */
 .card {
-  width: 58px; height: 82px;
+  width: 62px; height: 88px;
   border-radius: 8px;
-  background: var(--paper);
+  background: linear-gradient(170deg, var(--paper), var(--paper-lo));
   color: var(--ink);
-  box-shadow: 0 2px 0 rgba(0, 0, 0, 0.3), 0 0 0 1px rgba(0, 0, 0, 0.15), 0 8px 16px -8px rgba(0, 0, 0, 0.6);
+  box-shadow:
+    inset 0 0 0 4px var(--paper),
+    inset 0 0 0 5px rgba(30, 37, 51, 0.13),
+    0 1px 0 rgba(0, 0, 0, 0.3),
+    0 10px 18px -8px rgba(0, 0, 0, 0.7);
   display: grid; place-items: center;
-  font: 700 1.3125rem/1 var(--face);
   position: relative;
   padding: 0;
   flex: none;
 }
 .card.red { color: var(--red); }
-.card .s { font-size: 1.5rem; }
-.card > span { display: grid; justify-items: center; gap: 3px; }
-.card.joker { font: 800 0.75rem/1 var(--ui); letter-spacing: 0.02em; text-transform: uppercase; }
-.card.joker .s { font-size: 1.375rem; }
-.card.joker.black { background: var(--ink); color: var(--paper); }
-.hand .card.new { box-shadow: 0 0 0 3px var(--yes), 0 8px 16px -8px rgba(0, 0, 0, 0.6); z-index: 1; }
+.card .r { position: absolute; top: 8px; left: 9px; font: 400 1.125rem/1 var(--face); }
+.card .s { font: 400 2rem/1 var(--face); margin-top: 10px; }
+.card.joker .r { top: auto; bottom: 9px; left: 0; right: 0; text-align: center; font: 800 0.6875rem/1 var(--ui); }
+.card.joker .s { margin: 0 0 8px; font-size: 1.75rem; }
+.card.joker.black {
+  background: linear-gradient(170deg, #2a3243, var(--ink));
+  color: var(--paper);
+  box-shadow: inset 0 0 0 4px var(--ink), inset 0 0 0 5px rgba(248, 241, 226, 0.2), 0 10px 18px -8px rgba(0, 0, 0, 0.7);
+}
+.hand .card.new { box-shadow: inset 0 0 0 4px var(--paper), 0 0 0 3px var(--yes), 0 10px 18px -8px rgba(0, 0, 0, 0.7); z-index: 1; }
 .hand .card.new.fresh { animation: dealt 600ms ease-out; }
 @keyframes dealt { from { transform: translateY(-18px); opacity: 0; } to { transform: none; opacity: 1; } }
 
@@ -505,13 +618,16 @@ button.size-pick:hover { border-color: var(--gold); filter: none; background: va
 .picker .cards .card + .card { margin-left: 0; }
 button.card { cursor: pointer; }
 button.card:hover { transform: translateY(-4px); filter: none; }
-button.card.held { opacity: 0.5; }
-button.card.chosen { transform: translateY(-8px); box-shadow: 0 0 0 3px var(--team-me), 0 10px 20px -8px rgba(0, 0, 0, 0.6); }
+button.card.held { opacity: 0.45; }
+button.card.chosen {
+  transform: translateY(-8px);
+  box-shadow: inset 0 0 0 4px var(--paper), 0 0 0 3px var(--team-me), 0 12px 22px -8px rgba(0, 0, 0, 0.7);
+}
 
 .assign { display: grid; grid-template-columns: repeat(auto-fill, minmax(230px, 1fr)); gap: 12px; }
 .assign .slot {
   display: flex; gap: 12px; align-items: center;
-  padding: 10px; border-radius: 14px; background: var(--panel-2);
+  padding: 10px; border-radius: 14px; background: var(--slab-2);
 }
 .assign .slot .row { gap: 6px; }
 .assign .slot button { padding: 8px 12px; font-size: var(--step--1); }
@@ -522,8 +638,8 @@ button.card.chosen { transform: translateY(-8px); box-shadow: 0 0 0 3px var(--te
 .join-form input {
   font: 700 var(--step-1) var(--ui);
   color: var(--foam);
-  background: var(--panel);
-  border: 2px solid var(--panel-2);
+  background: var(--slab);
+  border: 2px solid var(--slab-2);
   border-radius: 14px;
   padding: 14px 16px;
   width: 100%;
@@ -531,8 +647,9 @@ button.card.chosen { transform: translateY(-8px); box-shadow: 0 0 0 3px var(--te
 .join-form input:focus-visible { border-color: var(--tide); outline: none; }
 
 .qr { display: grid; grid-template-columns: auto 1fr; gap: 16px; align-items: center; }
-.qr img { width: 150px; height: 150px; border-radius: 12px; background: #fff; padding: 4px; }
+.qr img { width: 150px; height: 150px; border-radius: 14px; background: #fff; padding: 6px; }
 .qr > div { display: grid; gap: 6px; min-width: 0; }
+.qr h3 { font-size: var(--step-1); }
 .qr .url { font-size: var(--step--1); color: var(--faint); overflow-wrap: anywhere; }
 @media (min-width: 1100px) {
   .qr { grid-template-columns: 1fr; justify-items: center; text-align: center; }
@@ -545,30 +662,32 @@ body.phone #app { padding-bottom: calc(48px + env(safe-area-inset-bottom)); }
 /* ---------------------------------------------------------- small screens */
 
 @media (max-width: 720px) {
-  :root { --step-0: 1rem; --step-1: 1.1875rem; --step-2: 1.5rem; --step-3: 2.25rem; }
+  :root { --step-0: 1rem; --step-1: 1.1875rem; --step-2: 1.5rem; --step-3: 2.25rem; --step-4: 3.5rem; }
   #app { padding: 14px 16px 40px; }
+  .home { margin-top: 12px; gap: 28px; }
+  .hero .logo { width: 92px; height: 92px; padding: 12px; }
   .top-bar { margin-bottom: 12px; padding-bottom: 12px; }
   .top-bar .actions { width: 100%; }
-  .logo { width: 32px; }
-  .table { aspect-ratio: 1 / 1; max-height: none; min-height: 0; }
-  .felt { inset: 12% 15%; box-shadow: 0 0 0 7px var(--rim), 0 0 0 8px var(--rim-hi), inset 0 0 40px rgba(0, 0, 0, 0.35); }
+  .logo { width: 36px; height: 36px; }
+  .table { --pond: 13% 15%; aspect-ratio: 1 / 1; max-height: none; min-height: 0; }
+  .water::before { inset: -9px; }
   .seat { width: 98px; gap: 4px; }
-  .seat .disc { flex-direction: column; gap: 2px; padding: 6px 4px; border-radius: 12px; text-align: center; }
+  .seat .disc { flex-direction: column; gap: 2px; padding: 6px 4px; border-radius: 16px 20px 17px 21px / 19px 16px 21px 17px; text-align: center; }
   .seat .avatar { display: none; }
   .seat .who { justify-items: center; }
   .seat .name { font-size: var(--step--1); max-width: 88px; }
   .seat .count { font-size: 0.75rem; gap: 3px; }
   .seat .bot-tag, .seat .me, .backs { display: none; }
-  .seat .turn-tag { top: -10px; font-size: 0.5625rem; padding: 2px 7px; }
+  .seat .turn-tag { top: -11px; font-size: 0.625rem; padding: 2px 7px; }
   .seat-actions button.small, .seat > button.small { padding: 5px 9px; font-size: 0.75rem; }
-  .pond { width: 48%; gap: 4px; }
+  .pond-mid { width: 56%; gap: 2px; }
   .pond-status { font-size: var(--step--1); }
   .winner { font-size: var(--step-2); }
   .bubble { width: max-content; max-width: 110px; padding: 4px 8px; font-size: 0.6875rem; white-space: normal; text-align: center; }
   .delta { padding: 0 4px; }
-  .fishes { grid-template-columns: repeat(5, 1fr); gap: 2px; }
+  .fish .koi { width: 18px; }
   .fish span { display: none; }
-  .team-score { font-size: 2rem; }
+  .team-score { font-size: 2.25rem; }
   .pbp .what { font-size: var(--step-0); }
   /* On a phone your hand comes straight after the table; the score and moves follow. */
   .screen { display: flex; flex-direction: column; gap: 16px; }
@@ -576,14 +695,18 @@ body.phone #app { padding-bottom: calc(48px + env(safe-area-inset-bottom)); }
   .screen .table { order: 1; }
   .screen .you { order: 2; margin-top: 0; padding: 16px; }
   .screen .side { order: 3; }
-  .card { width: 46px; height: 66px; font-size: 1.0625rem; }
-  .card .s { font-size: 1.25rem; }
-  .cards .card + .card { margin-left: -12px; }
+  .card { width: 48px; height: 68px; }
+  .card .r { top: 6px; left: 7px; font-size: 0.9375rem; }
+  .card .s { font-size: 1.5rem; margin-top: 8px; }
+  .card.joker .s { font-size: 1.375rem; }
+  .card.joker .r { bottom: 7px; font-size: 0.5625rem; }
+  .cards .card + .card { margin-left: -14px; }
   .qr img { width: 130px; height: 130px; }
 }
 
 @media (prefers-reduced-motion: reduce) {
-  .fish.fresh svg, .seat.turn .disc, .bubble.fresh, .delta.fresh, .ask-line line,
-  .pbp.fresh .latest, .hand .card.new.fresh { animation: none; }
+  .hero .logo, .seat.turn .disc::after, .fish.fresh .koi, .fish.fresh::before, .bubble.fresh, .delta.fresh,
+  .ask-line line, .pbp.fresh .latest, .hand .card.new.fresh { animation: none; }
+  .seat.turn .disc::after, .fish.fresh::before { display: none; }
   button.card:hover, button.card.chosen, .seat.target .disc, .seat button.pick:hover .disc { transform: none; }
 }

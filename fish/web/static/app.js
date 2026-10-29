@@ -15,7 +15,15 @@ const SHORT = {
   "low-S": "2–7♠", "low-H": "2–7♥", "low-D": "2–7♦", "low-C": "2–7♣", eights: "8s & J",
   "high-S": "9–A♠", "high-H": "9–A♥", "high-D": "9–A♦", "high-C": "9–A♣",
 };
-const FISH_PATH = "M3 12c4-6 11-7 17-3l4-3v12l-4-3c-6 4-13 3-17-3z";
+// A koi seen from above, head up: fins and tail, body, spots, eyes.
+const KOI = `<path class="fin" d="M13 21c-8 1-11 8-8 11 4-1 8-5 10-8zM27 21c8 1 11 8 8 11-4-1-8-5-10-8zM20 47c-6 3-10 11-8 15 4-2 6-4 8-7 2 3 4 5 8 7 2-4-2-12-8-15z"/>
+  <path class="body" d="M20 2c7 0 10 8 10 18 0 12-5 22-10 30-5-8-10-18-10-30C10 10 13 2 20 2z"/>
+  <path class="spot" d="M16 10c3-2 7 0 7 4s-4 6-7 5-3-7 0-9zM22 27c3 0 4 4 3 7s-4 4-5 1 0-8 2-8z"/>
+  <circle class="eye" cx="16.5" cy="7" r="1.1"/><circle class="eye" cx="23.5" cy="7" r="1.1"/>`;
+
+function koi(cls = "") {
+  return `<svg class="koi ${cls}" viewBox="0 0 40 64" aria-hidden="true">${KOI}</svg>`;
+}
 
 let snap = null;
 let ws = null;
@@ -145,12 +153,12 @@ function cardHtml(c, extra = "", tag = "div", attrs = "") {
   if (c === "WJ" || c === "BJ") {
     const cls = c === "BJ" ? "black" : "";
     return `<${tag} class="card joker ${cls} ${extra}" ${attrs} aria-label="${cardName(c)}">
-      <span><span class="s">★</span>${c === "BJ" ? "Black" : "White"}</span></${tag}>`;
+      <span class="r">${c === "BJ" ? "Black" : "White"}</span><span class="s">★</span></${tag}>`;
   }
   const suit = c.slice(-1);
   const red = suit === "H" || suit === "D" ? "red" : "";
   return `<${tag} class="card ${red} ${extra}" ${attrs} aria-label="${cardName(c)}">
-    <span>${esc(c.slice(0, -1))}<span class="s">${SUIT[suit]}</span></span></${tag}>`;
+    <span class="r">${esc(c.slice(0, -1))}</span><span class="s">${SUIT[suit]}</span></${tag}>`;
 }
 
 const teamOf = (seat) => seat % 2;
@@ -215,7 +223,10 @@ function render() {
   app.innerHTML = body.replace("<!--error-->", err);
 }
 
-const LOGO = `<svg class="logo" viewBox="0 0 26 24" aria-hidden="true"><path d="${FISH_PATH}"/></svg>`;
+// Two koi chasing each other round a pond, one for each team.
+const LOGO = `<svg class="logo koi" viewBox="0 0 64 64" aria-hidden="true">
+  <g class="t0" transform="translate(32 32) translate(-11 0) rotate(-14) scale(.62) translate(-20 -32)">${KOI}</g>
+  <g class="t1" transform="translate(32 32) rotate(180) translate(-11 0) rotate(-14) scale(.62) translate(-20 -32)">${KOI}</g></svg>`;
 
 function topBar(title, sub, actions = "") {
   return `<header class="top-bar">
@@ -296,13 +307,19 @@ function joining() {
     <div><button class="quiet" data-cmd="leave">Cancel</button></div></div>`;
 }
 
+// The nine sets as koi swimming round the pond. A set still in play swims
+// deep and pale; a won set surfaces in the colours of the team that won it.
 function fishes(claimed, fresh) {
-  return `<div class="fishes">${Object.keys(snap.sets).map((id) => {
-    const won = id in claimed ? `won${claimed[id]}` : "";
+  const ids = Object.keys(snap.sets);
+  return `<div class="school">${ids.map((id, k) => {
+    const a = -90 + (k * 360) / ids.length;
+    const cos = Math.cos((a * Math.PI) / 180);
+    const sin = Math.sin((a * Math.PI) / 180);
+    const at = `--x:${50 + 38 * cos}%;--y:${50 + 33 * sin}%;--lx:${50 + 28 * cos}%;--ly:${50 + 22 * sin}%;--heading:${a + 180}deg`;
+    const won = id in claimed ? `won t${claimed[id]}` : "";
     const title = `${snap.set_names[id]}${id in claimed ? `, won by ${TEAM[claimed[id]]}` : ""}`;
-    return `<div class="fish ${won} ${fresh.has(id) ? "fresh" : ""}" title="${esc(title)}">
-      <svg viewBox="0 0 26 24" aria-hidden="true"><path d="${FISH_PATH}"/></svg>
-      <span>${SHORT[id]}</span></div>`;
+    return `<div class="fish ${won} ${fresh.has(id) ? "fresh" : ""}" style="${at}" title="${esc(title)}">
+      ${koi()}<span>${SHORT[id]}</span></div>`;
   }).join("")}</div>`;
 }
 
@@ -350,9 +367,9 @@ function lobby() {
   return `${topBar(`${esc(hostName())}'s room`, `${seated} of ${L.size} seats filled`, actions)}
     ${confirmBar()}<!--error-->
     <div class="play">
-      <div class="table"><div class="felt"></div>${seats}
+      <div class="table"><div class="water"></div>${seats}
         <div class="pond">${fishes({}, new Set())}
-          <p class="pond-status">${status}</p></div></div>
+          <div class="pond-mid"><p class="pond-status">${status}</p></div></div></div>
       <aside class="side">
         ${qrPanel()}
         <section class="card-panel">${legend}
@@ -412,7 +429,7 @@ function game() {
   const middle = v.over
     ? `<p class="winner t${v.winner}">${TEAM[v.winner]} wins</p><p class="pond-status">${Math.max(g, t)} sets to ${Math.min(g, t)}</p>`
     : `<p class="pond-status">${plural(9 - g - t, "set")} still in play</p>`;
-  const pond = `<div class="pond">${fishes(v.claimed, fresh)}${middle}</div>`;
+  const pond = `<div class="pond">${fishes(v.claimed, fresh)}<div class="pond-mid">${middle}</div></div>`;
 
   let controls = "";
   if (isHost) {
@@ -430,7 +447,7 @@ function game() {
 
   return `${topBar(v.over ? "Game over" : "Fish", sub, controls)}${confirmBar()}<!--error-->
     <div class="screen"><div class="play ${watching ? "watching" : ""}">
-      <div class="table"><div class="felt"></div>${askLine(v, me)}${pond}${seats}</div>
+      <div class="table"><div class="water"></div>${askLine(v, me)}${pond}${seats}</div>
       <aside class="side">
         ${watching ? `<section class="now t${teamOf(v.turn)}">${now}</section>` : ""}
         ${scoreboard(v, names)}
@@ -453,7 +470,7 @@ function scoreboard(v, names) {
     return `<div class="team t${k} ${v.over && v.winner === k ? "winner" : ""}">
       <div class="team-head"><span class="team-name">${TEAM[k]}</span><span class="team-score">${v.score[k]}</span></div>
       <p class="team-who">${who}</p>
-      <div class="won">${won.length ? won.map((id) => `<span class="won-set">${SHORT[id]}</span>`).join("")
+      <div class="won">${won.length ? won.map((id) => `<span class="won-set">${koi()}${SHORT[id]}</span>`).join("")
         : '<span class="none">No sets yet</span>'}</div></div>`;
   };
   return `<section class="scoreboard" aria-label="Score">${team(0)}${team(1)}</section>`;
@@ -498,7 +515,7 @@ function bubbles(v, names) {
   return said;
 }
 
-// The latest ask, drawn from asker to target across the felt.
+// The latest ask, drawn from asker to target across the pond.
 function askLine(v, me) {
   const m = v.last_move;
   if (!m || m.kind !== "ask" || v.over) return "";
