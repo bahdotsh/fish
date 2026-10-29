@@ -57,6 +57,10 @@ class Game:
         self.claimed: dict[str, int] = {}
         self.history: deque[Ask] = deque(maxlen=HISTORY_LENGTH)
         self.last_declaration: Declaration | None = None
+        # The latest move of any kind, numbered, so a page can tell a new one
+        # from the one it already showed.
+        self.moves = 0
+        self.last_move: dict | None = None
 
     # -- queries -----------------------------------------------------------
 
@@ -114,6 +118,7 @@ class Game:
             self.turn = target
         result = Ask(asker, target, card, got)
         self.history.append(result)
+        self._moved({"kind": "ask", **vars(result)})
         return result
 
     def declare(self, declarer: int, assignment: dict[str, int]) -> Declaration:
@@ -150,6 +155,7 @@ class Game:
         result = Declaration(declarer, set_id, correct, winner)
         self.last_declaration = result
         self._settle_turn()
+        self._moved({"kind": "declare", **vars(result)})
         return result
 
     def pass_turn(self, player: int, to: int) -> None:
@@ -164,6 +170,11 @@ class Game:
             raise IllegalMove("That teammate has no cards")
         self.turn = to
         self.must_pass = False
+        self._moved({"kind": "pass", "player": player, "to": to})
+
+    def _moved(self, move: dict) -> None:
+        self.moves += 1
+        self.last_move = move
 
     def _settle_turn(self) -> None:
         """Keep the turn with someone who can use it after cards leave play."""
@@ -198,6 +209,8 @@ class Game:
             "claimed": dict(self.claimed),
             "history": [vars(a) for a in self.history],
             "last_declaration": vars(last) if last else None,
+            "moves": self.moves,
+            "last_move": self.last_move,
         }
 
     @classmethod
@@ -211,6 +224,8 @@ class Game:
         game.history = deque((Ask(**a) for a in data["history"]), maxlen=HISTORY_LENGTH)
         last = data["last_declaration"]
         game.last_declaration = Declaration(**last) if last else None
+        game.moves = data.get("moves", 0)  # games saved before moves were counted
+        game.last_move = data.get("last_move")
         return game
 
     # -- what each player may see -------------------------------------------
@@ -235,6 +250,8 @@ class Game:
             "score": list(self.score()),
             "history": [vars(a) for a in self.history],
             "last_declaration": vars(last) if last else None,
+            "moves": self.moves,
+            "last_move": self.last_move,
             "over": self.over,
             "winner": self.winner,
         }

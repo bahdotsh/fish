@@ -99,6 +99,19 @@ def test_history_keeps_the_last_two_asks():
     assert game.view(3)["history"][-1] == {"asker": 0, "target": 1, "card": "5S", "got": True}
 
 
+def test_every_move_is_numbered_in_the_view():
+    game = rigged({0: ["2S", "3S", "4S", "5S", "6S"], 2: ["AH"], 1: ["7S", "KD"]})
+    assert game.view(1)["moves"] == 0 and game.view(1)["last_move"] is None
+    game.ask(0, 1, "7S")
+    assert game.view(1)["last_move"] == {"kind": "ask", "asker": 0, "target": 1, "card": "7S", "got": True}
+    game.declare(0, low_spades([0] * 6))
+    assert game.view(1)["last_move"] == {
+        "kind": "declare", "declarer": 0, "set_id": "low-S", "correct": True, "team": 0}
+    game.pass_turn(0, 2)
+    view = game.view(1)
+    assert view["moves"] == 3 and view["last_move"] == {"kind": "pass", "player": 0, "to": 2}
+
+
 # -- declaring -----------------------------------------------------------------
 
 
