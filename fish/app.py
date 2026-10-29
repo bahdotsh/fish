@@ -2,7 +2,8 @@
 
 The page talks to this process over one WebSocket on loopback. The server
 pushes the table's snapshot whenever it changes; the page sends commands
-back. Nothing here listens beyond 127.0.0.1.
+back. The laptop's own page listens only on 127.0.0.1; phones get a
+separate server on the local network (see phones.py).
 """
 
 from __future__ import annotations
@@ -22,6 +23,7 @@ from starlette.staticfiles import StaticFiles
 from starlette.websockets import WebSocket, WebSocketDisconnect
 
 from .mesh import Mesh
+from .phones import Phones, build_phone_app, is_phone
 from .table import Table
 
 logger = logging.getLogger(__name__)
@@ -34,10 +36,14 @@ MAX_COMMAND_CHARS = 16 * 1024
 class Player:
     """Wires one mesh to one table and to the page's sockets."""
 
-    def __init__(self, mesh: Mesh, home: Path, bot_delay: float = 1.2):
+    def __init__(self, mesh: Mesh, home: Path, bot_delay: float = 1.2,
+                 phone_port: int | None = None, lan_ip: str | None = None):
         self.mesh = mesh
         self.home = home
         self.bot_delay = bot_delay
+        self.phone_port = phone_port
+        self.lan_ip = lan_ip
+        self.phones: Phones | None = None
         self.table: Table | None = None
         self.sockets: set[WebSocket] = set()
         self._dirty = asyncio.Event()
@@ -45,18 +51,35 @@ class Player:
 
     async def start(self) -> None:
         await self.mesh.start()
-        self.table = Table(self.mesh.address, self.mesh.name, self.mesh.send,
+        self.table = Table(self.mesh.address, self.mesh.name, self._send,
                            save_path=self.home / "table.json", bot_delay=self.bot_delay)
         self.table.on_change = self._dirty.set
+        if self.phone_port:
+            self.phones = Phones(self.table, self.home, self.phone_port, self.lan_ip, self.bot_delay)
         self.mesh.on_hello = self.table.peer_seen
         self.mesh.on_lost = self.table.peer_lost
         self.mesh.on_message = self.table.receive
         self._pusher = asyncio.create_task(self._push_loop())
         await self.table.resume()
 
+    async def _send(self, address: str, message: dict[str, Any]) -> None:
+        if is_phone(address):
+            if self.phones:
+                await self.phones.deliver(address, message)
+        else:
+            await self.mesh.send(address, message)
+
+    def snapshot(self) -> dict[str, Any]:
+        snap = self.table.snapshot()
+        snap["device"] = "laptop"
+        snap["phone_url"] = self.phones.url if self.phones else None
+        return snap
+
     async def close(self) -> None:
         if self._pusher:
             self._pusher.cancel()
+        if self.phones:
+            await self.phones.close()
         await self.mesh.close()
 
     async def _push_loop(self) -> None:
@@ -67,7 +90,7 @@ class Player:
             await asyncio.sleep(0.05)  # coalesce bursts into one frame
 
     async def _push(self, only: WebSocket | None = None) -> None:
-        frame = json.dumps(self.table.snapshot())
+        frame = json.dumps(self.snapshot())
         for ws in [only] if only else list(self.sockets):
             try:
                 await ws.send_text(frame)
@@ -127,8 +150,14 @@ def build_app(player: Player) -> Starlette:
             return Response("Forbidden", status_code=403)
         return FileResponse(WEB / "index.html", headers={"Cache-Control": "no-store"})
 
+    async def qr(request: Any) -> Response:
+        if not _loopback(request.headers.get("host")) or not player.phones or not player.phones.url:
+            return Response("Not found", status_code=404)
+        return Response(player.phones.qr_svg(), media_type="image/svg+xml", headers={"Cache-Control": "no-store"})
+
     return Starlette(routes=[
         Route("/", index),
+        Route("/qr.svg", qr),
         WebSocketRoute("/ws", player.socket),
         Mount("/static", Static(directory=WEB / "static")),
     ])
@@ -145,4 +174,11 @@ class Server(uvicorn.Server):
 
 def make_server(player: Player, port: int) -> Server:
     config = uvicorn.Config(build_app(player), host="127.0.0.1", port=port, log_level="warning", lifespan="off")
+    return Server(config)
+
+
+def make_phone_server(player: Player) -> Server:
+    """The phone page, on every interface so phones on the Wi-Fi reach it."""
+    app = build_phone_app(player.phones, lambda: Static(directory=WEB / "static"))
+    config = uvicorn.Config(app, host="0.0.0.0", port=player.phones.port, log_level="warning", lifespan="off")
     return Server(config)

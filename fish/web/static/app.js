@@ -1,7 +1,13 @@
 // Fish: the page. It shows the snapshot this player's app pushes over
 // /ws and sends commands back. All rules are checked by the host; the
 // page only offers moves that make sense.
+//
+// The same page runs on a phone (window.FISH_PHONE), where it first asks
+// for a name and joins the laptop it was opened from.
 "use strict";
+
+const PHONE = Boolean(window.FISH_PHONE);
+const GUEST_KEY = "fish-guest";
 
 const SUIT = { S: "♠", H: "♥", D: "♦", C: "♣" };
 const TEAM = ["Team Gold", "Team Tide"];
@@ -23,14 +29,78 @@ function freshUi() {
 // ------------------------------------------------------------- socket
 
 function connect() {
-  ws = new WebSocket(`ws://${location.host}/ws`);
+  let url = `ws://${location.host}/ws`;
+  if (PHONE) {
+    const guest = savedGuest();
+    if (!guest) return phoneJoinForm();
+    url += `?id=${encodeURIComponent(guest.id)}&s=${encodeURIComponent(guest.secret)}`;
+  }
+  ws = new WebSocket(url);
   ws.onmessage = (e) => { snap = JSON.parse(e.data); render(); };
-  ws.onclose = () => {
+  ws.onclose = (e) => {
     snap = null;
+    if (PHONE && e.code === 4403) {
+      // The laptop no longer knows this phone: join again.
+      forgetGuest();
+      return phoneJoinForm();
+    }
+    const what = PHONE ? "the laptop running the game" : "your Fish app";
     document.getElementById("app").innerHTML =
-      '<p class="connecting">Lost the connection to your Fish app. Reconnecting…</p>';
-    setTimeout(connect, 1000);
+      `<p class="connecting">Lost the connection to ${what}. Reconnecting…</p>`;
+    setTimeout(connect, 1500);
   };
+}
+
+// ------------------------------------------------------------- phones
+
+function savedGuest() {
+  try {
+    const g = JSON.parse(localStorage.getItem(GUEST_KEY));
+    return g && g.id && g.secret ? g : null;
+  } catch {
+    return null;
+  }
+}
+
+function forgetGuest() {
+  try { localStorage.removeItem(GUEST_KEY); } catch { /* storage blocked */ }
+}
+
+function phoneJoinForm(error = "") {
+  const key = new URLSearchParams(location.search).get("k");
+  const app = document.getElementById("app");
+  if (!key) {
+    app.innerHTML = `<div class="home"><header><h1>Fish</h1>
+      <p class="quiet-text">Scan the QR code on the laptop running the game to join it.</p></header></div>`;
+    return;
+  }
+  app.innerHTML = `<form class="home join-form" id="join"><header><h1>Fish</h1>
+      <p class="quiet-text">You're joining a game on this Wi-Fi. Your cards stay on your phone.</p></header>
+    ${error ? `<p class="error" role="alert">${esc(error)}</p>` : ""}
+    <label for="name">Your name at the table</label>
+    <input id="name" name="name" maxlength="24" autocomplete="nickname" autocapitalize="words" required>
+    <div><button class="go" type="submit">Join the game</button></div></form>`;
+  const form = document.getElementById("join");
+  form.name.focus();
+  form.addEventListener("submit", async (e) => {
+    e.preventDefault();
+    const name = form.name.value.trim();
+    if (!name) return;
+    let res;
+    try {
+      res = await fetch("/join", {
+        method: "POST", headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ k: key, name }),
+      });
+    } catch {
+      return phoneJoinForm("Can't reach the laptop. Check you're on the same Wi-Fi.");
+    }
+    const body = await res.json().catch(() => ({}));
+    if (!res.ok) return phoneJoinForm(body.error || "The laptop turned that down.");
+    try { localStorage.setItem(GUEST_KEY, JSON.stringify(body)); } catch { /* storage blocked */ }
+    if (!savedGuest()) return phoneJoinForm("This browser won't store your seat. Turn off private browsing and try again.");
+    connect();
+  });
 }
 
 function send(cmd) {
@@ -90,7 +160,8 @@ function render() {
       Your seat and cards are kept; play picks up when they're back in range.</p>`;
   }
   let body;
-  if (!snap.joined) body = home();
+  if (PHONE && !snap.joined) body = phoneHome();
+  else if (!snap.joined) body = home();
   else if (!snap.lobby) body = joining();
   else if (snap.game) body = game();
   else body = lobby();
@@ -122,6 +193,26 @@ function home() {
       ${peers ? `<div class="peers">${peers}</div>`
         : '<p class="quiet-text">Nobody yet. Players running Fish on the same network show up here.</p>'}</section>
   </div>`;
+}
+
+function phoneHome() {
+  const room = snap.rooms[0];
+  const host = esc(snap.host_name);
+  let what;
+  if (!room) what = `<p class="quiet-text">Waiting for ${host} to open a room on the laptop.</p>`;
+  else if (room.started) what = `<p class="quiet-text">${host}'s game has already started. You can join the next one.</p>`;
+  else what = `<div><button class="go" data-cmd="join" data-host="${esc(room.host)}">Join ${host}'s table</button></div>`;
+  return `<div class="home"><header><h1>Fish</h1>
+    <p class="quiet-text">You're ${esc(snap.me.name)}.</p></header><!--error-->${what}</div>`;
+}
+
+function qrPanel() {
+  if (!snap.hosting || !snap.phone_url) return "";
+  return `<aside class="qr">
+    <img src="/qr.svg" alt="QR code to join this game from a phone" width="160" height="160">
+    <div><h3>Play from a phone</h3>
+      <p class="quiet-text">Scan this with the phone's camera. The phone has to be on the same Wi-Fi as this laptop.</p>
+      <p class="url">${esc(snap.phone_url)}</p></div></aside>`;
 }
 
 function joining() {
@@ -163,7 +254,8 @@ function lobby() {
     }
     return `<div class="${cls}" style="${seatPos(i, Math.max(mySeat, 0), L.size)}">${inner}</div>`;
   }).join("");
-  const standing = L.members.filter((m) => !L.seats.some((s) => s && s.address === m.address));
+  // The host running the table from a laptop is not waiting for a seat.
+  const standing = L.members.filter((m) => m.address !== L.host && !L.seats.some((s) => s && s.address === m.address));
   const hostName = L.members.find((m) => m.address === L.host)?.name || "Host";
   const full = seated === L.size;
   return `<div class="room-bar">
@@ -180,18 +272,21 @@ function lobby() {
       <div class="pond">${fishes({}, new Set())}
         <p class="quiet-text">${full ? (isHost ? "Everyone's seated. Start when you're ready."
           : `Waiting for ${esc(hostName)} to start.`)
+          : isHost && snap.phone_url ? "Players scan the QR code below, then pick a seat. Each team gets the seats of its colour."
           : "Pick a seat. Each team gets the seats of its colour."}</p></div></div>
-    ${standing.length ? `<p class="quiet-text">Still standing: ${standing.map((m) => esc(m.name)).join(", ")}</p>` : ""}`;
+    ${standing.length ? `<p class="quiet-text">Still standing: ${standing.map((m) => esc(m.name)).join(", ")}</p>` : ""}
+    ${qrPanel()}`;
 }
 
 function game() {
   const v = snap.game;
   const names = seatNames();
   const away = (snap.lobby?.seats || []).map((s) => Boolean(s && s.away));
-  const me = v.you;
+  const watching = v.you === null;
+  const me = watching ? 0 : v.you;
   const myTeam = v.team;
-  const myTurn = v.turn === me && !v.over;
-  const teamTurn = teamOf(v.turn) === myTeam && !v.over;
+  const myTurn = !watching && v.turn === me && !v.over;
+  const teamTurn = !watching && teamOf(v.turn) === myTeam && !v.over;
 
   // Reset half-made choices when the turn moves on.
   const turnKey = `${v.turn}/${v.must_pass}/${Object.keys(v.claimed).length}/${v.hand.length}`;
@@ -209,7 +304,7 @@ function game() {
   const seats = names.map((name, i) => {
     const can = asking && teamOf(i) !== myTeam && v.counts[i] > 0;
     const cls = `seat t${teamOf(i)} ${v.turn === i && !v.over ? "turn" : ""} ${ui.target === i ? "target" : ""}`;
-    const disc = `<div class="disc"><span class="name">${esc(name)}${i === me ? " (you)" : ""}</span>
+    const disc = `<div class="disc"><span class="name">${esc(name)}${i === v.you ? " (you)" : ""}</span>
       <span class="count">${plural(v.counts[i], "card")}</span>
       ${away[i] ? '<span class="away">Away</span>' : ""}</div>`;
     const inner = can
@@ -225,8 +320,9 @@ function game() {
 
   const isHost = snap.hosting;
   const bar = `<div class="room-bar">
-    <div><h2>Fish</h2><p class="quiet-text">You're on ${TEAM[myTeam]}, with
-      ${names.filter((_, i) => teamOf(i) === myTeam && i !== me).map(esc).join(" and ")}.</p></div>
+    <div><h2>Fish</h2><p class="quiet-text">${watching
+      ? "This laptop is the table. Each player sees their own cards on their own screen."
+      : `You're on ${TEAM[myTeam]}, with ${names.filter((_, i) => teamOf(i) === myTeam && i !== me).map(esc).join(" and ")}.`}</p></div>
     <div class="actions">${v.over
       ? `${isHost ? '<button class="go" data-cmd="start">Play again</button><button class="quiet" data-cmd="close">Close room</button>'
         : '<button class="quiet" data-cmd="leave">Leave room</button>'}`
@@ -234,10 +330,10 @@ function game() {
 
   return `${bar}<!--error-->
     <div class="table"><div class="felt"></div>${seats}${pond}</div>
-    <section class="you t${myTeam}">
+    <section class="you ${watching ? "" : `t${myTeam}`}">
       <header><p class="prompt ${myTurn ? "mine" : ""}">${prompt(v, names, myTurn, teamTurn, away)}</p></header>
-      ${v.over ? "" : hand(v)}
-      ${v.over ? "" : actions(v, names, myTurn, teamTurn)}
+      ${v.over || watching ? "" : hand(v)}
+      ${v.over || watching ? "" : actions(v, names, myTurn, teamTurn)}
     </section>`;
 }
 
@@ -260,8 +356,8 @@ function news(v, names) {
 function prompt(v, names, myTurn, teamTurn, away) {
   if (v.over) {
     const [g, t] = v.score;
-    const won = v.winner === v.team;
-    return `${TEAM[v.winner]} wins, ${Math.max(g, t)} sets to ${Math.min(g, t)}. ${won ? "Well played." : "Next time."}`;
+    const verdict = v.you === null ? "" : v.winner === v.team ? " Well played." : " Next time.";
+    return `${TEAM[v.winner]} wins, ${Math.max(g, t)} sets to ${Math.min(g, t)}.${verdict}`;
   }
   if (myTurn && v.must_pass) return "You're out of cards. Pick a teammate to take the turn.";
   if (myTurn) return "Your turn. Ask an opponent for a card, or declare a set.";

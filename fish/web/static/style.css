@@ -252,12 +252,14 @@ button.card.chosen { transform: translateY(-6px); box-shadow: 0 0 0 3px var(--te
 
 @media (max-width: 720px) {
   h1 { font-size: var(--step-2); }
-  .table { aspect-ratio: 3 / 5; max-height: none; min-height: 0; }
-  .felt { inset: 12% 10%; }
+  .table { aspect-ratio: 1 / 1; max-height: none; min-height: 0; }
+  .felt { inset: 10% 14%; }
   .seat { width: 92px; }
   .seat .disc { padding: 6px 4px; border-radius: 12px; }
   .seat .name { font-size: var(--step--1); }
-  .pond { width: 52%; }
+  .pond { width: 46%; gap: 4px; }
+  .score { font-size: var(--step-1); }
+  .pond .news p + p { display: none; }
   .fishes { grid-template-columns: repeat(5, 1fr); }
   .fish span { display: none; }
   .card { width: 40px; height: 58px; font-size: 0.9375rem; }
@@ -267,3 +269,32 @@ button.card.chosen { transform: translateY(-6px); box-shadow: 0 0 0 3px var(--te
   .fish.fresh svg { animation: none; }
   button.card:hover, button.card.chosen { transform: none; }
 }
+
+/* ------------------------------------------------------------- phones */
+
+.join-form label { font-weight: 700; }
+.join-form input {
+  font: 600 var(--step-1) var(--ui);
+  color: var(--foam);
+  background: var(--water);
+  border: 2px solid var(--shallows);
+  border-radius: 14px;
+  padding: 12px 14px;
+  width: 100%;
+}
+.join-form input:focus-visible { border-color: var(--tide); outline: none; }
+
+.qr {
+  margin-top: 20px;
+  padding: 18px;
+  border-radius: 22px;
+  background: var(--water);
+  display: flex; gap: 20px; align-items: center; flex-wrap: wrap;
+}
+.qr img { width: 160px; height: 160px; border-radius: 12px; background: #fff; flex: none; }
+.qr > div { display: grid; gap: 6px; flex: 1; min-width: 200px; }
+.qr .url { font-size: var(--step--1); color: var(--mist); overflow-wrap: anywhere; }
+
+/* On a phone, room for thumbs: bigger cards to tap, and safe-area padding. */
+body.phone #app { padding-bottom: calc(48px + env(safe-area-inset-bottom)); }
+body.phone button.card { width: 44px; height: 64px; }
